@@ -13,7 +13,7 @@ class AuthService {
    */
   async login(credentials) {
     try {
-      const response = await this.api.post('/auth/login', credentials);
+      const response = await this.api.post('/api/auth/login', credentials);
       return response;
     } catch (error) {
       console.error('Erro de login:', error);
@@ -28,7 +28,7 @@ class AuthService {
    */
   async register(userData) {
     try {
-      const response = await this.api.post('/auth/register', userData);
+      const response = await this.api.post('/api/auth/register', userData);
       return response;
     } catch (error) {
       console.error('Erro de registro:', error);
@@ -44,7 +44,7 @@ class AuthService {
     try {
       const token = await StorageService.getTokens();
       if (token && token.accessToken) {
-        await this.api.post('/auth/logout', { accessToken: token.accessToken });
+        await this.api.post('/api/auth/logout', { accessToken: token.accessToken });
       }
       return true;
     } catch (error) {
@@ -65,7 +65,7 @@ class AuthService {
    */
   async requestPasswordReset(email) {
     try {
-      const response = await this.api.post('/auth/forgot-password', { email });
+      const response = await this.api.post('/api/auth/forgot-password', { email });
       return response;
     } catch (error) {
       console.error('Erro ao solicitar redefinição de senha:', error);
