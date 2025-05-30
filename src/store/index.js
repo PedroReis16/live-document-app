@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import {
   persistStore,
   persistReducer,
@@ -13,7 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Importar os slices
 import authSlice from "./authSlice";
-import documentsSlice from "./documentsSlice";
+import documentSlice from "./documentSlice";
 import shareSlice from "./shareSlice";
 
 // Configuração de persistência
@@ -25,13 +25,24 @@ const persistConfig = {
 };
 
 // Combinar reducers
-const rootReducer = {
+const appReducer = combineReducers({
   auth: authSlice.reducer,
-  documents: documentsSlice.reducer,
+  documents: documentSlice.reducer,
   share: shareSlice.reducer,
+});
+
+// Middleware customizado para limpar store
+const rootReducer = (state, action) => {
+  if (action.type === "CLEAR_STORE") {
+    // Limpar AsyncStorage
+    AsyncStorage.clear();
+    // Resetar state
+    state = undefined;
+  }
+  return appReducer(state, action);
 };
 
-// Aplicar persistência ao reducer
+// Aplicar persistência ao rootReducer
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 // Configurar store
@@ -61,21 +72,3 @@ export const clearStore = () => {
     type: "CLEAR_STORE",
   };
 };
-
-// Middleware customizado para limpar store
-const rootReducerWithClear = (state, action) => {
-  if (action.type === "CLEAR_STORE") {
-    // Limpar AsyncStorage
-    // Middleware customizado para limpar store
-    const rootReducerWithClear = (state, action) => {
-      if (action.type === "CLEAR_STORE") {
-        // Limpar AsyncStorage
-        AsyncStorage.clear();
-        // Resetar state
-        state = undefined;
-      }
-      return persistedReducer(state, action);
-    };
-  }
-};
-return persistedReducer(state, action);
