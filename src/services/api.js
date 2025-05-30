@@ -1,206 +1,269 @@
+import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
+import StorageService from './storage';
+import { API_BASE_URL } from '../utils/constants';
 
 class ApiService {
   constructor() {
-    // Atualizar para o URL onde a API live-document está hospedada
-    this.baseURL = "https://live-document-api.herokuapp.com/api";
-    // Ou use localhost para desenvolvimento local:
-    // this.baseURL = "http://192.168.1.X:5000/api"; // Substitua pelo seu IP local
-    this.token = null;
-    this.refreshToken = null;
-  }
-
-  setAuthToken(token, refreshToken) {
-    this.token = token;
-    this.refreshToken = refreshToken;
-    
-    // Salvar tokens no AsyncStorage
-    if (token && refreshToken) {
-      AsyncStorage.setItem('token', token);
-      AsyncStorage.setItem('refreshToken', refreshToken);
-    } else {
-      AsyncStorage.removeItem('token');
-      AsyncStorage.removeItem('refreshToken');
-    }
-  }
-
-  async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    // Configuração padrão
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers
-    };
-    
-    // Adicionar token de autenticação se disponível
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    
-    const config = {
-      ...options,
-      headers
-    };
-    
-    try {
-      // Verificar conectividade antes de fazer a requisição
-      const isConnected = await NetInfo.fetch().then(state => state.isConnected);
-      
-      if (!isConnected) {
-        throw new Error('Sem conexão com a internet');
+    this.api = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
-      
-      const response = await fetch(url, config);
-      const data = await response.json();
-      
-      // Tratar erro de autenticação (token expirado)
-      if (response.status === 401 && this.refreshToken) {
-        try {
-          // Tentar renovar o token
-          const refreshData = await this.refreshAccessToken();
-          
-          // Atualizar token e repetir a requisição original
-          this.setAuthToken(refreshData.token, refreshData.refreshToken);
-          
-          // Refazer a requisição original com o novo token
-          headers['Authorization'] = `Bearer ${refreshData.token}`;
-          const newConfig = { ...config, headers };
-          const newResponse = await fetch(url, newConfig);
-          return await newResponse.json();
-        } catch (refreshError) {
-          // Se falhar na renovação do token, fazer logout
-          throw new Error('Sessão expirada, faça login novamente');
+    });
+
+    this.refreshTokenRequest = null;
+
+    // Configurar interceptores
+    this.setupInterceptors();
+  }
+
+  // Configurar interceptores para tratamento automático de tokens
+  setupInterceptors() {
+    // Interceptor de requisição
+    this.api.interceptors.request.use(
+      async (config) => {
+        // Adicionar token de acesso ao cabeçalho se disponível
+        const token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
         }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Interceptor de resposta
+    this.api.interceptors.response.use(
+      (response) => response.data,
+      async (error) => {
+        const originalRequest = error.config;
+        
+        // Se erro 401 (não autorizado) e não foi uma tentativa de refresh token
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          try {
+            // Tentar renovar o token
+            const newToken = await this.refreshAuthToken();
+            
+            if (newToken) {
+              // Configurar novo token no cabeçalho
+              this.api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+              originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+              
+              // Refazer a requisição original com o novo token
+              return this.api(originalRequest);
+            }
+          } catch (refreshError) {
+            console.error('Erro ao renovar token:', refreshError);
+            
+            // Falha ao renovar token - logout
+            await StorageService.clearTokens();
+            await StorageService.clearUserData();
+            
+            // Emitir evento para forçar logout na aplicação
+            const event = new CustomEvent('sessionExpired');
+            document.dispatchEvent(event);
+          }
+        }
+        
+        // Retornar o erro para ser tratado pelo chamador
+        return Promise.reject(error);
       }
-      
-      // Se a resposta não for bem-sucedida, lançar erro
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro na requisição');
-      }
-      
-      return data;
+    );
+  }
+
+  // Definir token de autenticação
+  setAuthToken(accessToken, refreshToken = null) {
+    if (accessToken) {
+      this.api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    } else {
+      delete this.api.defaults.headers.common['Authorization'];
+    }
+  }
+
+  // Renovar token de autenticação
+  async refreshAuthToken() {
+    // Evitar múltiplas requisições de refresh simultaneamente
+    if (!this.refreshTokenRequest) {
+      this.refreshTokenRequest = (async () => {
+        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        
+        if (!refreshToken) {
+          return null;
+        }
+        
+        try {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken
+          });
+          
+          if (response.data && response.data.accessToken) {
+            const newToken = response.data.accessToken;
+            
+            // Salvar novo token
+            await AsyncStorage.setItem('accessToken', newToken);
+            
+            return newToken;
+          }
+          return null;
+        } catch (error) {
+          console.error('Falha ao renovar token:', error);
+          return null;
+        } finally {
+          this.refreshTokenRequest = null;
+        }
+      })();
+    }
+    
+    return this.refreshTokenRequest;
+  }
+
+  // Autenticação
+  async login(credentials) {
+    try {
+      const response = await this.api.post('/auth/login', credentials);
+      return response;
     } catch (error) {
-      console.error(`Erro na requisição para ${url}:`, error);
+      console.error('Erro de login:', error);
       throw error;
     }
   }
 
-  // Auth endpoints
-  async login(credentials) {
-    const data = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials)
-    });
-    return data;
-  }
-  
   async register(userData) {
-    const data = await this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData)
-    });
-    return data;
+    try {
+      const response = await this.api.post('/auth/register', userData);
+      return response;
+    } catch (error) {
+      console.error('Erro de registro:', error);
+      throw error;
+    }
   }
-  
-  async refreshAccessToken() {
-    const data = await this.request('/auth/refresh', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.refreshToken}`
-      }
-    });
-    return data;
-  }
-  
+
   async logout() {
-    return await this.request('/auth/logout', {
-      method: 'POST'
-    });
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (token) {
+        await this.api.post('/auth/logout', { accessToken: token });
+      }
+      return true;
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      throw error;
+    } finally {
+      // Limpar dados mesmo se houver erro na API
+      this.setAuthToken(null);
+      await StorageService.clearTokens();
+      await StorageService.clearUserData();
+    }
   }
 
-  // Document endpoints
+  async requestPasswordReset(email) {
+    try {
+      const response = await this.api.post('/auth/forgot-password', { email });
+      return response;
+    } catch (error) {
+      console.error('Erro ao solicitar redefinição de senha:', error);
+      throw error;
+    }
+  }
+
+  // Serviço de usuário
+  async getUserProfile() {
+    try {
+      const response = await this.api.get('/users/me');
+      return response;
+    } catch (error) {
+      console.error('Erro ao buscar perfil do usuário:', error);
+      throw error;
+    }
+  }
+
+  async updateProfile(profileData) {
+    try {
+      const response = await this.api.put('/users/me', profileData);
+      return response;
+    } catch (error) {
+      console.error('Erro ao atualizar perfil:', error);
+      throw error;
+    }
+  }
+
+  async updatePassword(passwordData) {
+    try {
+      const response = await this.api.put('/users/me/password', passwordData);
+      return response;
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error);
+      throw error;
+    }
+  }
+
+  async uploadAvatar(formData) {
+    try {
+      const response = await this.api.post('/users/me/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response;
+    } catch (error) {
+      console.error('Erro ao fazer upload de avatar:', error);
+      throw error;
+    }
+  }
+
+  // Documentos
   async getDocuments() {
-    return await this.request('/documents');
-  }
-  
-  async getDocument(id) {
-    return await this.request(`/documents/${id}`);
-  }
-  
-  async createDocument(data) {
-    return await this.request('/documents', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  }
-  
-  async updateDocument(id, data) {
-    return await this.request(`/documents/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-  }
-  
-  async deleteDocument(id) {
-    return await this.request(`/documents/${id}`, {
-      method: 'DELETE'
-    });
-  }
-  
-  async uploadImage(documentId, imageUri) {
-    const formData = new FormData();
-    
-    // Criar objeto de arquivo para upload
-    const fileUriParts = imageUri.split('.');
-    const fileType = fileUriParts[fileUriParts.length - 1];
-    
-    formData.append('image', {
-      uri: imageUri,
-      name: `photo.${fileType}`,
-      type: `image/${fileType}`
-    });
-    
-    return await this.request(`/documents/${documentId}/images`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      body: formData
-    });
+    try {
+      const response = await this.api.get('/documents');
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar documentos:', error);
+      throw error;
+    }
   }
 
-  // Share endpoints
-  async generateShareCode(documentId) {
-    return await this.request('/share/generate', {
-      method: 'POST',
-      body: JSON.stringify({ documentId })
-    });
+  async getDocument(id) {
+    try {
+      const response = await this.api.get(`/documents/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar documento:', error);
+      throw error;
+    }
   }
-  
-  async joinDocument(shareCode) {
-    return await this.request('/share/join', {
-      method: 'POST',
-      body: JSON.stringify({ shareCode })
-    });
+
+  async createDocument(documentData) {
+    try {
+      const response = await this.api.post('/documents', documentData);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao criar documento:', error);
+      throw error;
+    }
   }
-  
-  async getCollaborators(documentId) {
-    return await this.request(`/share/${documentId}/collaborators`);
+
+  async updateDocument(id, documentData) {
+    try {
+      const response = await this.api.put(`/documents/${id}`, documentData);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao atualizar documento:', error);
+      throw error;
+    }
   }
-  
-  async updateCollaboratorPermission(documentId, userId, permission) {
-    return await this.request(`/share/${documentId}/permissions`, {
-      method: 'PUT',
-      body: JSON.stringify({ userId, permission })
-    });
-  }
-  
-  async removeCollaborator(documentId, userId) {
-    return await this.request(`/share/${documentId}/collaborators/${userId}`, {
-      method: 'DELETE'
-    });
+
+  async deleteDocument(id) {
+    try {
+      const response = await this.api.delete(`/documents/${id}`);
+      return response;
+    } catch (error) {
+      console.error('Erro ao excluir documento:', error);
+      throw error;
+    }
   }
 }
 

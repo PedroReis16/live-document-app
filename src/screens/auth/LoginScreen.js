@@ -1,15 +1,289 @@
-const LoginScreen = ({ navigation }) => {
-  // Estado do formulário
-  // Validação de campos
-  // Chamada da API de login
-  // Armazenamento do token
-  // Navegação pós-login
-  // Tratamento de erros
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  StatusBar,
+  Alert,
+  SafeAreaView
+} from 'react-native';
+import { useDispatch } from 'react-redux';
+import { Feather } from '@expo/vector-icons';
 
-  const handleLogin = async (credentials) => {
-    // Validar campos
-    // Chamar AuthService.login()
-    // Salvar token no AsyncStorage
-    // Navegar para DocumentListScreen
+// Components
+import Input from '../../components/common/Input';
+import Button from '../../components/common/Button';
+
+// Services
+import ApiService from '../../services/api';
+import StorageService from '../../services/storage';
+import SocketService from '../../services/socket';
+
+// Actions
+import { login } from '../../store/authSlice';
+
+const LoginScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
+
+  // Estado do formulário
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Validação de campos
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validar email
+    if (!email) {
+      newErrors.email = 'Email é obrigatório';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        newErrors.email = 'Digite um email válido';
+      }
+    }
+
+    // Validar senha
+    if (!password) {
+      newErrors.password = 'Senha é obrigatória';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
+
+  // Função de login
+  const handleLogin = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Chamada à API
+      const response = await ApiService.login({ email, password });
+
+      // Processar resposta
+      if (response && response.accessToken) {
+        // Salvar tokens
+        await StorageService.setTokens(response.accessToken, response.refreshToken);
+        
+        // Configurar token no ApiService para futuras requisições
+        ApiService.setAuthToken(response.accessToken, response.refreshToken);
+        
+        // Salvar dados do usuário
+        await StorageService.setUserData(response.user);
+        
+        // Conectar ao socket
+        SocketService.connect(response.accessToken);
+        
+        // Dispatch para o Redux
+        dispatch(login({
+          user: response.user,
+          token: response.accessToken,
+          refreshToken: response.refreshToken
+        }));
+      } else {
+        Alert.alert('Erro', 'Não foi possível fazer login. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro no login:', error);
+      
+      // Mensagem de erro personalizada
+      let errorMessage = 'Erro ao fazer login. Por favor, tente novamente.';
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = 'Email ou senha incorretos';
+        } else if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
+      Alert.alert('Erro', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.inner}>
+            {/* Cabeçalho e Logo */}
+            <View style={styles.header}>
+              <Image
+                source={require('../../../assets/icon.png')} // Ajuste para seu logo
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.title}>Document App</Text>
+              <Text style={styles.subtitle}>
+                Crie, edite e compartilhe documentos em tempo real
+              </Text>
+            </View>
+
+            {/* Formulário de Login */}
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <Input
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) setErrors({...errors, email: null});
+                  }}
+                  placeholder="seu.email@exemplo.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon="mail"
+                  error={errors.email}
+                />
+                {errors.email && (
+                  <Text style={styles.errorText}>{errors.email}</Text>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Senha</Text>
+                <Input
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors({...errors, password: null});
+                  }}
+                  placeholder="Sua senha"
+                  secureTextEntry={!showPassword}
+                  leftIcon="lock"
+                  rightIcon={showPassword ? "eye-off" : "eye"}
+                  onRightIconPress={() => setShowPassword(!showPassword)}
+                  error={errors.password}
+                />
+                {errors.password && (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={styles.forgotPassword}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
+              </TouchableOpacity>
+
+              <Button
+                title="Entrar"
+                onPress={handleLogin}
+                style={styles.loginButton}
+                loading={isLoading}
+              />
+
+              <View style={styles.registerContainer}>
+                <Text style={styles.registerText}>Não tem uma conta?</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Register')}
+                >
+                  <Text style={styles.registerLink}>Registre-se</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 };
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff'
+  },
+  container: {
+    flex: 1,
+  },
+  inner: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  form: {
+    width: '100%',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#f44336',
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    color: '#2196f3',
+    fontSize: 14,
+  },
+  loginButton: {
+    marginBottom: 16,
+  },
+  registerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  registerText: {
+    color: '#666',
+    marginRight: 4,
+  },
+  registerLink: {
+    color: '#2196f3',
+    fontWeight: 'bold',
+  }
+});
+
+export default LoginScreen;

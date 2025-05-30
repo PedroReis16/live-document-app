@@ -18,8 +18,8 @@ import * as Clipboard from 'expo-clipboard';
 import { joinSharedDocument } from '../../store/shareSlice';
 
 // Componentes
-import Input from '../../components/commom/Input';
-import Button from '../../components/commom/Button';
+import Input from '../../components/common/Input';
+import Button from '../../components/common/Button';
 
 const JoinScreen = ({ navigation }) => {
   const [shareCode, setShareCode] = useState('');

@@ -16,7 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import { generateShareCode, fetchCollaborators } from '../../store/shareSlice';
 
 // Componentes
-import Button from '../../components/commom/Button';
+import Button from '../../components/common/Button';
 import CollaboratorsList from '../../components/document/CollaboratorsList';
 
 const ShareScreen = ({ route, navigation }) => {
