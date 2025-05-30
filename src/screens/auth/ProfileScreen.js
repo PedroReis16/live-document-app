@@ -69,6 +69,7 @@ const ProfileScreen = ({ navigation }) => {
   // Função para selecionar imagem de perfil
   const handleSelectImage = async () => {
     try {
+      setImageLoading(true);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
@@ -77,7 +78,7 @@ const ProfileScreen = ({ navigation }) => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'Images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -105,6 +106,8 @@ const ProfileScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
+    } finally {
+      setImageLoading(false);
     }
   };
 
