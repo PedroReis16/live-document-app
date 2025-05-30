@@ -28,6 +28,8 @@ const Button = ({
         return styles.dangerButton;
       case 'outline':
         return styles.outlineButton;
+      case 'confirm':
+        return styles.primaryButton;
       default:
         return styles.primaryButton;
     }
@@ -104,9 +106,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2196f3',
   },
+  confirmButton: {
+    backgroundColor: '#4caf50', // Verde para botões de confirmação
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   disabledButton: {
-    backgroundColor: '#ccc',
-    borderColor: '#ccc',
+    backgroundColor: '#e0e0e0',
+    borderColor: '#e0e0e0',
+    shadowColor: 'transparent',
+    elevation: 0,
   },
   buttonText: {
     color: '#fff',

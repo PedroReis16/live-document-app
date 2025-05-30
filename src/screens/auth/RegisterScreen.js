@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -43,6 +43,35 @@ const RegisterScreen = ({ navigation }) => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Verificar se o formulário está válido para habilitar o botão
+  const [isFormValid, setIsFormValid] = useState(false);
+
+  // Função para verificar a validade do formulário em tempo real
+  const checkFormValidity = () => {
+    // Verificar nome de usuário
+    if (!username || username.length < 3) return false;
+    
+    // Verificar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) return false;
+    
+    // Verificar senha
+    if (!password || password.length < 6) return false;
+    
+    // Verificar confirmação de senha
+    if (password !== confirmPassword) return false;
+    
+    // Verificar termos
+    if (!acceptTerms) return false;
+    
+    return true;
+  };
+
+  // Atualizar estado de validade do formulário quando os campos mudarem
+  useEffect(() => {
+    setIsFormValid(checkFormValidity());
+  }, [username, email, password, confirmPassword, acceptTerms]);
 
   // Seleção de avatar
   const handleSelectAvatar = async () => {
@@ -359,6 +388,8 @@ const RegisterScreen = ({ navigation }) => {
                 onPress={handleRegister}
                 style={styles.registerButton}
                 loading={isLoading}
+                disabled={!isFormValid} // Desabilitar botão se o formulário não for válido
+                variant="confirm" // Novo estilo de botão de confirmação
               />
 
               <View style={styles.loginContainer}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,20 @@ const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isFormValid, setIsFormValid] = useState(false);
+
+  // Verificar se o formulário está válido em tempo real
+  const checkFormValidity = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) return false;
+    if (!password || password.length < 1) return false;
+    return true;
+  };
+
+  // Atualizar o estado de validade do formulário quando os campos mudarem
+  useEffect(() => {
+    setIsFormValid(checkFormValidity());
+  }, [email, password]);
 
   // Validação de campos
   const validateForm = () => {
@@ -190,6 +204,8 @@ const LoginScreen = ({ navigation }) => {
                 onPress={handleLogin}
                 style={styles.loginButton}
                 loading={isLoading}
+                disabled={!isFormValid} // Desabilita o botão se o formulário não for válido
+                variant="confirm" // Novo estilo de botão de confirmação
               />
 
               <View style={styles.registerContainer}>
