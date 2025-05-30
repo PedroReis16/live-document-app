@@ -1,186 +1,133 @@
 // filepath: d:\Documentos\Code\Projetos\document-app\src\services\share.js
-import ApiService from './api';
-import socketService from './socket';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { baseApiService } from './BaseApiService';
 
 class ShareService {
   constructor() {
-    this.api = ApiService;
-    this.shareCodesCache = new Map();
-    this.collaboratorsCache = new Map();
+    this.api = baseApiService.api;
   }
 
-  // Gerar código de compartilhamento
-  async generateShareCode(documentId) {
+  /**
+   * Compartilha um documento com outros usuários
+   * @param {string} documentId - ID do documento
+   * @param {Array} users - Lista de usuários para compartilhar (email e permissão)
+   * @returns {Promise} Promessa com resultado do compartilhamento
+   */
+  async shareDocument(documentId, users) {
     try {
-      const response = await this.api.generateShareCode(documentId);
-      
-      // Guardar no cache
-      if (response && response.shareCode) {
-        this.shareCodesCache.set(documentId, {
-          code: response.shareCode,
-          expiration: response.expiration,
-          timestamp: Date.now()
-        });
-      }
-      
+      const response = await this.api.post(`/share/document/${documentId}`, { users });
       return response;
     } catch (error) {
-      console.error('Erro ao gerar código de compartilhamento:', error);
+      console.error(`Erro ao compartilhar documento ${documentId}:`, error);
       throw error;
     }
   }
 
-  // Entrar em um documento compartilhado através do código
-  async joinWithCode(shareCode) {
+  /**
+   * Revoga compartilhamento com um usuário específico
+   * @param {string} documentId - ID do documento
+   * @param {string} userId - ID do usuário
+   * @returns {Promise} Promessa com resultado da revogação
+   */
+  async revokeDocumentAccess(documentId, userId) {
     try {
-      const response = await this.api.joinDocument(shareCode);
-      
-      // Retornar informações do documento para navegar para ele
+      const response = await this.api.delete(`/share/document/${documentId}/user/${userId}`);
       return response;
     } catch (error) {
-      console.error('Erro ao entrar no documento compartilhado:', error);
+      console.error(`Erro ao revogar acesso ao documento ${documentId}:`, error);
       throw error;
     }
   }
 
-  // Buscar colaboradores de um documento
-  async getCollaborators(documentId) {
+  /**
+   * Atualiza permissão de um usuário em um documento compartilhado
+   * @param {string} documentId - ID do documento
+   * @param {string} userId - ID do usuário
+   * @param {string} permission - Nova permissão (read, write, admin)
+   * @returns {Promise} Promessa com permissão atualizada
+   */
+  async updateUserPermission(documentId, userId, permission) {
     try {
-      const response = await this.api.getCollaborators(documentId);
-      
-      // Guardar no cache
-      if (response && response.collaborators) {
-        this.collaboratorsCache.set(documentId, {
-          collaborators: response.collaborators,
-          timestamp: Date.now()
-        });
-      }
-      
-      return response.collaborators || [];
+      const response = await this.api.put(`/share/document/${documentId}/user/${userId}`, { permission });
+      return response;
     } catch (error) {
-      console.error('Erro ao buscar colaboradores:', error);
-      
-      // Em caso de erro, tentar retornar do cache se disponível
-      const cached = this.collaboratorsCache.get(documentId);
-      if (cached) {
-        return cached.collaborators;
-      }
-      
-      return [];
-    }
-  }
-
-  // Atualizar permissão de um colaborador
-  async updateCollaboratorPermission(documentId, userId, permission) {
-    try {
-      await this.api.updateCollaboratorPermission(documentId, userId, permission);
-      
-      // Atualizar cache
-      const cached = this.collaboratorsCache.get(documentId);
-      if (cached) {
-        const updatedCollaborators = cached.collaborators.map(c => {
-          if (c.id === userId) {
-            return { ...c, permission };
-          }
-          return c;
-        });
-        
-        this.collaboratorsCache.set(documentId, {
-          collaborators: updatedCollaborators,
-          timestamp: Date.now()
-        });
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Erro ao atualizar permissão de colaborador:', error);
+      console.error(`Erro ao atualizar permissão no documento ${documentId}:`, error);
       throw error;
     }
   }
 
-  // Remover um colaborador
-  async removeCollaborator(documentId, userId) {
+  /**
+   * Busca todos os usuários com quem o documento está compartilhado
+   * @param {string} documentId - ID do documento
+   * @returns {Promise} Promessa com lista de compartilhamentos
+   */
+  async getDocumentShares(documentId) {
     try {
-      await this.api.removeCollaborator(documentId, userId);
-      
-      // Atualizar cache
-      const cached = this.collaboratorsCache.get(documentId);
-      if (cached) {
-        const updatedCollaborators = cached.collaborators.filter(c => c.id !== userId);
-        
-        this.collaboratorsCache.set(documentId, {
-          collaborators: updatedCollaborators,
-          timestamp: Date.now()
-        });
-      }
-      
-      return true;
+      const response = await this.api.get(`/share/document/${documentId}`);
+      return response;
     } catch (error) {
-      console.error('Erro ao remover colaborador:', error);
+      console.error(`Erro ao buscar compartilhamentos do documento ${documentId}:`, error);
       throw error;
     }
   }
 
-  // Verificar se um código salvo ainda é válido
-  isShareCodeValid(documentId) {
-    const cached = this.shareCodesCache.get(documentId);
-    
-    if (!cached) {
-      return false;
-    }
-    
-    // Verificar se o código expirou
-    const now = Date.now();
-    const expirationTime = new Date(cached.expiration).getTime();
-    
-    return expirationTime > now;
-  }
-
-  // Obter código salvo para um documento
-  getShareCodeForDocument(documentId) {
-    const cached = this.shareCodesCache.get(documentId);
-    return cached && this.isShareCodeValid(documentId) ? cached.code : null;
-  }
-
-  // Configurar listeners de socket para eventos de colaboração
-  setupCollaborationListeners(documentId, callbacks) {
-    const { onUserJoined, onUserLeft, onPermissionChanged } = callbacks || {};
-    
-    // Desconectar listeners anteriores
-    this.removeCollaborationListeners();
-    
-    // Configurar novos listeners se o socket estiver conectado
-    if (socketService.isSocketConnected()) {
-      this.unsubscribeUserJoined = onUserJoined ? 
-        socketService.onCollaboratorJoined(onUserJoined) : 
-        () => {};
-        
-      this.unsubscribeUserLeft = onUserLeft ? 
-        socketService.onCollaboratorLeft(onUserLeft) : 
-        () => {};
-        
-      this.unsubscribePermissionChanged = onPermissionChanged ? 
-        socketService.onPermissionChanged(onPermissionChanged) : 
-        () => {};
+  /**
+   * Cria um link público para acesso a um documento
+   * @param {string} documentId - ID do documento
+   * @param {Object} options - Opções do link (expiração, permissão)
+   * @returns {Promise} Promessa com dados do link
+   */
+  async createPublicLink(documentId, options = {}) {
+    try {
+      const response = await this.api.post(`/share/document/${documentId}/public-link`, options);
+      return response;
+    } catch (error) {
+      console.error(`Erro ao criar link público para documento ${documentId}:`, error);
+      throw error;
     }
   }
 
-  // Remover listeners de socket para eventos de colaboração
-  removeCollaborationListeners() {
-    if (this.unsubscribeUserJoined) {
-      this.unsubscribeUserJoined();
-      this.unsubscribeUserJoined = null;
+  /**
+   * Revoga um link público de um documento
+   * @param {string} documentId - ID do documento
+   * @param {string} linkId - ID do link público
+   * @returns {Promise} Promessa com resultado da revogação
+   */
+  async revokePublicLink(documentId, linkId) {
+    try {
+      const response = await this.api.delete(`/share/document/${documentId}/public-link/${linkId}`);
+      return response;
+    } catch (error) {
+      console.error(`Erro ao revogar link público do documento ${documentId}:`, error);
+      throw error;
     }
-    
-    if (this.unsubscribeUserLeft) {
-      this.unsubscribeUserLeft();
-      this.unsubscribeUserLeft = null;
+  }
+
+  /**
+   * Entra em um documento compartilhado através de convite
+   * @param {string} inviteCode - Código do convite
+   * @returns {Promise} Promessa com acesso ao documento
+   */
+  async joinSharedDocument(inviteCode) {
+    try {
+      const response = await this.api.post('/share/join', { inviteCode });
+      return response;
+    } catch (error) {
+      console.error('Erro ao entrar em documento compartilhado:', error);
+      throw error;
     }
-    
-    if (this.unsubscribePermissionChanged) {
-      this.unsubscribePermissionChanged();
-      this.unsubscribePermissionChanged = null;
+  }
+
+  /**
+   * Busca todos os documentos compartilhados com o usuário atual
+   * @returns {Promise} Promessa com lista de documentos compartilhados
+   */
+  async getSharedWithMeDocuments() {
+    try {
+      const response = await this.api.get('/share/shared-with-me');
+      return response;
+    } catch (error) {
+      console.error('Erro ao buscar documentos compartilhados comigo:', error);
+      throw error;
     }
   }
 }
