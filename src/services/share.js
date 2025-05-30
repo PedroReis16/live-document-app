@@ -14,7 +14,7 @@ class ShareService {
    */
   async shareDocument(documentId, users) {
     try {
-      const response = await this.api.post(`/share/document/${documentId}`, { users });
+      const response = await this.api.post(`/api/share/document/${documentId}`, { users });
       return response;
     } catch (error) {
       console.error(`Erro ao compartilhar documento ${documentId}:`, error);
@@ -30,7 +30,7 @@ class ShareService {
    */
   async revokeDocumentAccess(documentId, userId) {
     try {
-      const response = await this.api.delete(`/share/document/${documentId}/user/${userId}`);
+      const response = await this.api.delete(`/api/share/document/${documentId}/user/${userId}`);
       return response;
     } catch (error) {
       console.error(`Erro ao revogar acesso ao documento ${documentId}:`, error);
@@ -47,7 +47,7 @@ class ShareService {
    */
   async updateUserPermission(documentId, userId, permission) {
     try {
-      const response = await this.api.put(`/share/document/${documentId}/user/${userId}`, { permission });
+      const response = await this.api.put(`/api/share/document/${documentId}/user/${userId}`, { permission });
       return response;
     } catch (error) {
       console.error(`Erro ao atualizar permissão no documento ${documentId}:`, error);
@@ -62,7 +62,7 @@ class ShareService {
    */
   async getDocumentShares(documentId) {
     try {
-      const response = await this.api.get(`/share/document/${documentId}`);
+      const response = await this.api.get(`/api/share/document/${documentId}`);
       return response;
     } catch (error) {
       console.error(`Erro ao buscar compartilhamentos do documento ${documentId}:`, error);
@@ -78,7 +78,7 @@ class ShareService {
    */
   async createPublicLink(documentId, options = {}) {
     try {
-      const response = await this.api.post(`/share/document/${documentId}/public-link`, options);
+      const response = await this.api.post(`/api/share/document/${documentId}/public-link`, options);
       return response;
     } catch (error) {
       console.error(`Erro ao criar link público para documento ${documentId}:`, error);
@@ -94,7 +94,7 @@ class ShareService {
    */
   async revokePublicLink(documentId, linkId) {
     try {
-      const response = await this.api.delete(`/share/document/${documentId}/public-link/${linkId}`);
+      const response = await this.api.delete(`/api/share/document/${documentId}/public-link/${linkId}`);
       return response;
     } catch (error) {
       console.error(`Erro ao revogar link público do documento ${documentId}:`, error);
@@ -109,7 +109,7 @@ class ShareService {
    */
   async joinSharedDocument(inviteCode) {
     try {
-      const response = await this.api.post('/share/join', { inviteCode });
+      const response = await this.api.post('/api/share/join', { inviteCode });
       return response;
     } catch (error) {
       console.error('Erro ao entrar em documento compartilhado:', error);
@@ -123,7 +123,7 @@ class ShareService {
    */
   async getSharedWithMeDocuments() {
     try {
-      const response = await this.api.get('/share/shared-with-me');
+      const response = await this.api.get('/api/share/shared-with-me');
       return response;
     } catch (error) {
       console.error('Erro ao buscar documentos compartilhados comigo:', error);

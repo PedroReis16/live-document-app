@@ -11,7 +11,7 @@ class UserService {
    */
   async getUserProfile() {
     try {
-      const response = await this.api.get('/users/me');
+      const response = await this.api.get('/api/users/me');
       return response;
     } catch (error) {
       console.error('Erro ao buscar perfil do usuário:', error);
@@ -26,7 +26,7 @@ class UserService {
    */
   async updateProfile(profileData) {
     try {
-      const response = await this.api.put('/users/me', profileData);
+      const response = await this.api.put('/api/users/me', profileData);
       return response;
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
@@ -41,7 +41,7 @@ class UserService {
    */
   async updatePassword(passwordData) {
     try {
-      const response = await this.api.put('/users/me/password', passwordData);
+      const response = await this.api.put('/api/users/me/password', passwordData);
       return response;
     } catch (error) {
       console.error('Erro ao atualizar senha:', error);
@@ -56,7 +56,7 @@ class UserService {
    */
   async uploadAvatar(formData) {
     try {
-      const response = await this.api.post('/users/me/avatar', formData, {
+      const response = await this.api.post('/api/users/me/avatar', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -74,7 +74,7 @@ class UserService {
    */
   async removeAvatar() {
     try {
-      const response = await this.api.delete('/users/me/avatar');
+      const response = await this.api.delete('/api/users/me/avatar');
       return response;
     } catch (error) {
       console.error('Erro ao remover avatar:', error);
@@ -89,7 +89,7 @@ class UserService {
    */
   async updatePreferences(preferences) {
     try {
-      const response = await this.api.put('/users/me/preferences', preferences);
+      const response = await this.api.put('/api/users/me/preferences', preferences);
       return response;
     } catch (error) {
       console.error('Erro ao atualizar preferências:', error);

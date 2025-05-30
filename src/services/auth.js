@@ -80,7 +80,7 @@ class AuthService {
    */
   async resetPassword(resetData) {
     try {
-      const response = await this.api.post('/auth/reset-password', resetData);
+      const response = await this.api.post('/api/auth/reset-password', resetData);
       return response;
     } catch (error) {
       console.error('Erro ao redefinir senha:', error);
@@ -95,7 +95,7 @@ class AuthService {
    */
   async verifyResetToken(token) {
     try {
-      const response = await this.api.post('/auth/verify-reset-token', { token });
+      const response = await this.api.post('/api/auth/verify-reset-token', { token });
       return response;
     } catch (error) {
       console.error('Erro ao verificar token de redefinição:', error);

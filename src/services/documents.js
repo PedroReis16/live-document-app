@@ -20,7 +20,7 @@ class DocumentService {
       });
       
       const queryString = params.toString();
-      const url = `/documents${queryString ? `?${queryString}` : ''}`;
+      const url = `/api/documents${queryString ? `?${queryString}` : ''}`;
       
       const response = await this.api.get(url);
       return response;
@@ -37,7 +37,7 @@ class DocumentService {
    */
   async getDocument(id) {
     try {
-      const response = await this.api.get(`/documents/${id}`);
+      const response = await this.api.get(`/api/documents/${id}`);
       return response;
     } catch (error) {
       console.error(`Erro ao buscar documento ${id}:`, error);
@@ -52,7 +52,7 @@ class DocumentService {
    */
   async createDocument(documentData) {
     try {
-      const response = await this.api.post('/documents', documentData);
+      const response = await this.api.post('/api/documents', documentData);
       return response;
     } catch (error) {
       console.error('Erro ao criar documento:', error);
@@ -68,7 +68,7 @@ class DocumentService {
    */
   async updateDocument(id, documentData) {
     try {
-      const response = await this.api.put(`/documents/${id}`, documentData);
+      const response = await this.api.put(`/api/documents/${id}`, documentData);
       return response;
     } catch (error) {
       console.error(`Erro ao atualizar documento ${id}:`, error);
@@ -83,7 +83,7 @@ class DocumentService {
    */
   async deleteDocument(id) {
     try {
-      const response = await this.api.delete(`/documents/${id}`);
+      const response = await this.api.delete(`/api/documents/${id}`);
       return response;
     } catch (error) {
       console.error(`Erro ao excluir documento ${id}:`, error);
@@ -98,7 +98,7 @@ class DocumentService {
    */
   async getDocumentHistory(id) {
     try {
-      const response = await this.api.get(`/documents/${id}/history`);
+      const response = await this.api.get(`/api/documents/${id}/history`);
       return response;
     } catch (error) {
       console.error(`Erro ao buscar histórico do documento ${id}:`, error);
@@ -114,7 +114,7 @@ class DocumentService {
    */
   async restoreDocumentVersion(id, versionId) {
     try {
-      const response = await this.api.post(`/documents/${id}/restore`, { versionId });
+      const response = await this.api.post(`/api/documents/${id}/restore`, { versionId });
       return response;
     } catch (error) {
       console.error(`Erro ao restaurar versão do documento ${id}:`, error);
@@ -130,7 +130,7 @@ class DocumentService {
    */
   async exportDocument(id, format) {
     try {
-      const response = await this.api.get(`/documents/${id}/export`, { 
+      const response = await this.api.get(`/api/documents/${id}/export`, { 
         params: { format },
         responseType: 'blob'
       });
