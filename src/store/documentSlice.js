@@ -288,7 +288,7 @@ const documentSlice = createSlice({
 
       // Update document
       .addCase(updateDocument.pending, (state) => {
-        state.loading = true;
+        state.loading = false;
         state.error = null;
       })
       .addCase(updateDocument.fulfilled, (state, action) => {
