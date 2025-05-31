@@ -246,21 +246,41 @@ const DocumentEditor = ({
     
     // Se não há alterações, não salvar
     if (Object.keys(changes).length === 0) {
+      Alert.alert('Informação', 'Não há alterações para salvar.');
       return;
     }
     
     try {
       setSaving(true);
-      await dispatch(updateDocument({ id: document.id, changes })).unwrap();
+      
+      // Checar se é um documento local (ID começando com "local_")
+      const isLocalDocument = document.id.startsWith('local_');
+      
+      if (isLocalDocument && onSave) {
+        // Para documentos locais, delegamos ao componente pai
+        onSave({
+          title,
+          content
+        });
+        return;
+      }
+      
+      // Para documentos normais, usar o dispatch do Redux
+      const result = await dispatch(updateDocument({ 
+        id: document.id, 
+        changes 
+      })).unwrap();
       
       // Atualizar referências
       lastSyncedTitle.current = title;
       lastSyncedContent.current = content;
       
+      // Chamar callback do componente pai se existir
       if (onSave) {
         onSave(changes);
       }
       
+      // Feedback visual para o usuário
       Alert.alert('Sucesso', 'Documento salvo com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar documento:', error);

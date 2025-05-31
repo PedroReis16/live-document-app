@@ -82,6 +82,18 @@ class DocumentService {
    */
   async updateDocument(id, documentData) {
     try {
+      // Verificar se temos o token em memória
+      const authHeader = this.api.defaults.headers.common['Authorization'];
+      if (!authHeader) {
+        // Se não tiver, buscar do storage e configurar
+        const tokens = await StorageService.getTokens();
+        if (tokens && tokens.accessToken) {
+          this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+        } else {
+          throw new Error('Usuário não autenticado');
+        }
+      }
+      
       const response = await this.api.put(`/api/documents/${id}`, documentData);
       return response;
     } catch (error) {

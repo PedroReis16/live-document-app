@@ -251,7 +251,22 @@ const documentSlice = createSlice({
             (doc) => doc.id === action.payload.id
           );
           if (index !== -1) {
+            // Atualizar documento existente
             state.documents[index] = action.payload;
+          } else {
+            // Se não encontrou, pode ser um documento que precisa ser adicionado à lista
+            // (como um documento que foi criado localmente e só agora foi salvo no servidor)
+            state.documents.unshift(action.payload);
+          }
+
+          // Remover documentos locais com o mesmo título (se existirem)
+          // Isso evita duplicatas quando um documento local é salvo no servidor
+          if (!action.payload.id.startsWith('local_')) {
+            state.documents = state.documents.filter(doc => 
+              !(doc.id.startsWith('local_') && 
+                doc.title === action.payload.title && 
+                doc.id !== action.payload.id)
+            );
           }
         }
 

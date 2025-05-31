@@ -8,7 +8,8 @@ import {
   fetchDocumentById, 
   updateDocument, 
   joinCollaboration, 
-  leaveCollaboration
+  leaveCollaboration,
+  createDocument
 } from '../../store/documentSlice';
 import { fetchCollaborators } from '../../store/shareSlice';
 
@@ -172,10 +173,37 @@ const DocumentEditScreen = ({ route, navigation }) => {
   // Salvar documento
   const handleSaveDocument = async (changes) => {
     try {
-      await dispatch(updateDocument({ 
-        id: currentDocument.id, 
-        changes 
-      })).unwrap();
+      // Verificar se é um documento local (ID começando com "local_")
+      const isLocalDocument = currentDocument?.id?.startsWith('local_');
+      
+      if (isLocalDocument) {
+        // Para documentos locais, precisamos criar um novo documento no servidor
+        const documentData = {
+          title: changes.title || currentDocument.title,
+          content: changes.content || currentDocument.content,
+          // Outros campos necessários
+        };
+        
+        const createdDoc = await dispatch(createDocument(documentData)).unwrap();
+        
+        // Feedback visual para o usuário
+        Alert.alert('Sucesso', 'Documento salvo com sucesso no servidor!');
+        
+        // Navegar de volta para a tela anterior ou atualizar o ID do documento atual
+        navigation.replace('DocumentEdit', {
+          documentId: createdDoc.id,
+          isSharedDocument: false
+        });
+      } else {
+        // Para documentos existentes no servidor
+        await dispatch(updateDocument({ 
+          id: currentDocument.id, 
+          changes 
+        })).unwrap();
+        
+        // Feedback visual para o usuário
+        Alert.alert('Sucesso', 'Alterações salvas com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao salvar documento:', error);
       Alert.alert(
@@ -258,6 +286,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
           </View>
           
           <CollaboratorsList
+            key={currentDocument.id} 
             documentId={currentDocument.id}
             isOwner={currentDocument.owner === user?.id}
           />
