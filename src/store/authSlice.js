@@ -11,12 +11,12 @@ export const login = createAsyncThunk(
     try {
       // Fazer login na API
       const response = await ApiService.login(credentials);
-      
+
       // Salvar tokens e dados do usuário no armazenamento local
-      const { user, token, refreshToken } = response;
-      ApiService.setAuthToken(token, refreshToken);
+      const { user, accessToken, refreshToken } = response;
+      ApiService.setAuthToken(accessToken, refreshToken);
       await StorageService.setUserData(user);
-      await StorageService.setTokens(token, refreshToken);
+      await StorageService.setTokens(accessToken, refreshToken);
       
       // Conectar ao socket
       SocketService.connect(token);

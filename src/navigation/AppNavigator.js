@@ -45,10 +45,6 @@ const AppNavigator = () => {
 
   // Garantir que o socket seja conectado quando o usuário já está autenticado
   useEffect(() => {
-    console.log(`isAuthenticated: ${isAuthenticated}`);
-    console.log(`token disponível: ${!!token}`);
-    console.log(`initializing: ${initializing}`);
-
     if (isAuthenticated && token && !initializing) {
       if (!SocketService.isSocketConnected()) {
         console.log("Conectando ao socket após inicialização do app");
