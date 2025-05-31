@@ -54,6 +54,11 @@ const JoinScreen = ({ navigation }) => {
       console.error('Erro ao acessar a área de transferência:', error);
     }
   };
+
+  // Navegar para o scanner QR Code
+  const handleScanQRCode = () => {
+    navigation.navigate('QRCodeScannerScreen');
+  };
   
   // Entrar no documento compartilhado
   const handleJoinDocument = async () => {
@@ -96,7 +101,7 @@ const JoinScreen = ({ navigation }) => {
           
           <Text style={styles.title}>Entrar em um documento</Text>
           <Text style={styles.subtitle}>
-            Insira o código de compartilhamento para acessar um documento
+            Insira o código de compartilhamento ou escaneie o QR Code para acessar um documento
           </Text>
           
           <View style={styles.formContainer}>
@@ -127,6 +132,20 @@ const JoinScreen = ({ navigation }) => {
               disabled={!isValidCode || loading}
               loading={loading}
             />
+
+            <View style={styles.orContainer}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>ou</Text>
+              <View style={styles.orLine} />
+            </View>
+
+            <Button
+              title="Escanear QR Code"
+              onPress={handleScanQRCode}
+              type="outline"
+              leftIcon={<Feather name="camera" size={20} color="#2196f3" />}
+              containerStyle={styles.scanButton}
+            />
             
             {error && (
               <Text style={styles.errorText}>
@@ -138,7 +157,7 @@ const JoinScreen = ({ navigation }) => {
           <View style={styles.helpContainer}>
             <Text style={styles.helpTitle}>Como conseguir um código?</Text>
             <Text style={styles.helpText}>
-              Peça ao proprietário do documento para gerar e compartilhar um código de acesso com você.
+              Peça ao proprietário do documento para gerar e compartilhar um código de acesso ou QR Code com você.
             </Text>
           </View>
         </View>

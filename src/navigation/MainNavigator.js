@@ -9,6 +9,7 @@ import DocumentEditScreen from '../screens/documents/DocumentEditScreen';
 import DocumentViewScreen from '../screens/documents/DocumentViewScreen';
 import ShareScreen from '../screens/share/ShareScreen';
 import JoinScreen from '../screens/share/JoinScreen';
+import QRCodeScannerScreen from '../screens/share/QRCodeScannerScreen';
 import ProfileScreen from '../screens/auth/ProfileScreen';
 
 // Componentes de ícones para a tab bar
@@ -59,6 +60,14 @@ const DocumentStack = () => {
         options={{ 
           title: "Entrar em Documento",
           headerBackTitleVisible: false
+        }}
+      />
+      <Stack.Screen 
+        name="QRCodeScannerScreen" 
+        component={QRCodeScannerScreen} 
+        options={{ 
+          title: "Escanear QR Code",
+          headerShown: false
         }}
       />
     </Stack.Navigator>
