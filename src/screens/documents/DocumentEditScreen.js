@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Text,
   TouchableOpacity,
-  Clipboard,
   TouchableWithoutFeedback,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
@@ -14,7 +13,6 @@ import { styles } from "./styles/DocumeEditScreen.style";
 
 import {
   fetchDocumentById,
-  updateDocument,
   joinCollaboration,
   leaveCollaboration,
   createDocument,
@@ -32,19 +30,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const LOCAL_DOCUMENT_KEY_PREFIX = "local_document_";
 
 const DocumentEditScreen = ({ route, navigation }) => {
-  const { documentId, isNewDocument, isSharedDocument, documentData } =
-    route.params || {};
+  const {
+    documentId,
+    docUserId,
+    isNewDocument,
+    isSharedDocument,
+    documentData,
+  } = route.params || {};
   const dispatch = useDispatch();
 
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [collaborationMode, setCollaborationMode] = useState(false);
-  const [shareCode, setShareCode] = useState(null);
-  const [shareError, setShareError] = useState(null);
-  const [generatingCode, setGeneratingCode] = useState(false);
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [creatingServerDoc, setCreatingServerDoc] = useState(false);
-
-  const optionsMenuRef = useRef(null);
 
   const { currentDocument, loading, error, collaborationActive } = useSelector(
     (state) => state.documents
@@ -123,48 +120,19 @@ const DocumentEditScreen = ({ route, navigation }) => {
     };
   }, [collaborationMode, currentDocument, collaborationActive, dispatch]);
 
-  const handleShare = async () => {
-    if (!currentDocument) return;
+  const handleShare = () => {
+    console.log(documentData);
 
-    try {
-      setGeneratingCode(true);
-      setShareError(null);
-
-      let code = ShareService.getShareCodeForDocument(currentDocument.id);
-
-      if (!code) {
-        const response = await ShareService.generateShareCode(
-          currentDocument.id
-        );
-        code = response.shareCode;
-      }
-
-      setShareCode(code);
-
-      Alert.alert(
-        "Compartilhar documento",
-        `Compartilhe este código com outras pessoas:\n\n${code}\n\nEste código expira em 24 horas.`,
-        [
-          { text: "Copiar código", onPress: () => copyToClipboard(code) },
-          { text: "OK", style: "default" },
-        ]
-      );
-    } catch (error) {
-      console.error("Erro ao gerar código de compartilhamento:", error);
-      setShareError("Não foi possível gerar o código de compartilhamento");
-
-      Alert.alert(
-        "Erro",
-        "Não foi possível gerar o código de compartilhamento. Tente novamente."
-      );
-    } finally {
-      setGeneratingCode(false);
+    if (docUserId === user?.id) {
+      // Se for o dono do documento, navega para a tela de compartilhamento
+      navigation.navigate("Share", { documentId: documentId });
+    } else {
+      // Se for um documento compartilhado, compartilha um link externo
+      Share.share({
+        message: `Confira este documento: "${document.title}"`,
+        url: `app://document/${documentId}`,
+      });
     }
-  };
-
-  const copyToClipboard = (text) => {
-    Clipboard.setString(text);
-    Alert.alert("Copiado", "Código copiado para a área de transferência");
   };
 
   // Salvar backup local do documento (não bloqueante)

@@ -2,7 +2,6 @@ import React from "react";
 import {
   TouchableOpacity,
   Text,
-  StyleSheet,
   ActivityIndicator,
   View,
 } from "react-native";

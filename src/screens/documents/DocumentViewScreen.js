@@ -2,25 +2,28 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   SafeAreaView,
+  Alert,
   Share,
 } from "react-native";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { Feather } from "@expo/vector-icons";
 import { styles } from "./styles/DocumentViewScreen.style";
 
 // Serviços
 import DocumentService from "../../services/documents";
-import { formatDate } from "../../utils/helpers";
+import { formatToLocalDateTime } from "../../utils/helpers";
+import Button from "../../components/common/Button";
+
+import { deleteDocument } from "../../store/documentSlice";
 
 const DocumentViewScreen = ({ route, navigation }) => {
   const { documentId } = route.params || {};
   const { user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
 
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,18 +43,13 @@ const DocumentViewScreen = ({ route, navigation }) => {
   // Configurar opções de navegação dinâmicas
   useEffect(() => {
     if (document) {
+      console.log("Documento carregado:", document);
+      console.log(user.id);
+
       navigation.setOptions({
-        title: document.title || "Visualizar Documento",
+        title: "Detalhes do arquivo",
         headerRight: () => (
           <View style={styles.headerButtons}>
-            {document.userId === user?.id && (
-              <TouchableOpacity
-                style={styles.headerButton}
-                onPress={handleEdit}
-              >
-                <Feather name="edit-2" size={22} color="#2196f3" />
-              </TouchableOpacity>
-            )}
             <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
               <Feather name="share-2" size={22} color="#2196f3" />
             </TouchableOpacity>
@@ -81,12 +79,40 @@ const DocumentViewScreen = ({ route, navigation }) => {
     navigation.navigate("DocumentEdit", {
       documentId: document.id,
       isSharedDocument: false,
+      docUserId: document.ownerId,
     });
+  };
+
+  //Função para excluir o documento
+  const handleDelete = () => {
+    Alert.alert(
+      "Excluir documento",
+      `Tem certeza que deseja excluir "${document.title}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await dispatch(deleteDocument(documentId)).unwrap();
+              navigation.navigate("DocumentList");
+            } catch (error) {
+              console.error("Erro ao excluir documento:", error);
+              Alert.alert(
+                "Erro",
+                "Não foi possível excluir o documento. Tente novamente."
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Função para compartilhar o documento
   const handleShare = () => {
-    if (document.userId === user?.id) {
+    if (document.ownerId === user?.id) {
       // Se for o dono do documento, navega para a tela de compartilhamento
       navigation.navigate("Share", { documentId: document.id });
     } else {
@@ -148,11 +174,12 @@ const DocumentViewScreen = ({ route, navigation }) => {
           <Text style={styles.documentTitle}>{document.title}</Text>
           <View style={styles.metaInfo}>
             <Text style={styles.metaText}>
-              {document.userId === user?.id ? "Você" : document.userName}
+              Criado por:{" "}
+              {document.ownerId === user?.id ? "Você" : document.userName}
             </Text>
-            <Text style={styles.metaDot}>•</Text>
+            {<Text style={styles.metaDot}>•</Text>}
             <Text style={styles.metaText}>
-              {formatDate(document.updatedAt)}
+              Última atualização: {formatToLocalDateTime(document.updatedAt)}
             </Text>
           </View>
         </View>
@@ -166,25 +193,21 @@ const DocumentViewScreen = ({ route, navigation }) => {
 
         {/* Barra de ações */}
         <View style={styles.actionBar}>
-          {document.userId === user?.id ? (
-            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-              <Feather name="edit-2" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Editar</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.actionButton, styles.actionButtonDisabled]}>
-              <Feather name="eye" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Visualizando</Text>
-            </View>
+          {document.ownerId === user?.id && (
+            <Button
+              title="Excluir"
+              icon={<Feather name="trash" size={20} color="#fff" />}
+              onPress={handleDelete}
+              variant="danger"
+            />
           )}
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.shareButton]}
-            onPress={handleShare}
-          >
-            <Feather name="share-2" size={20} color="#fff" />
-            <Text style={styles.actionButtonText}>Compartilhar</Text>
-          </TouchableOpacity>
+          <Button
+            title="Editar"
+            icon={<Feather name="edit-2" size={20} color="#fff" />}
+            onPress={handleEdit}
+            variant="primary"
+          />
         </View>
       </ScrollView>
     </SafeAreaView>

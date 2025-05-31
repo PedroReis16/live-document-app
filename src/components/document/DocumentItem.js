@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { styles } from "./styles/DocumentItem.style";
+import { formatToLocalDateTime } from "../../utils/helpers"; // Certifique-se de ter essa função utilitária
 
 // Item da lista de documentos
 const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
@@ -10,20 +11,6 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
   // Garantir que o documento tenha um ID acessível
   const docId = document?.id || document?._id;
-
-  // Formatar data para exibição
-  const formatDate = (dateString) => {
-    if (!dateString) return "";
-
-    const date = new Date(dateString);
-    return date.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   // Abrir documento para visualização
   const handlePress = () => {
@@ -111,13 +98,13 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
         <Text style={styles.date} numberOfLines={1}>
           {document.createdAt
-            ? `Criado em: ${formatDate(document.createdAt)}`
+            ? `Criado em: ${formatToLocalDateTime(document.createdAt)}`
             : "Data desconhecida"}
         </Text>
 
         <Text style={styles.date} numberOfLines={1}>
           {document.updatedAt
-            ? `Última edição: ${formatDate(document.updatedAt)}`
+            ? `Última edição: ${formatToLocalDateTime(document.updatedAt)}`
             : ""}
         </Text>
 

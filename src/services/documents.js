@@ -1,5 +1,5 @@
-import { baseApiService } from './BaseApiService';
-import StorageService from './storage';
+import { baseApiService } from "./BaseApiService";
+import StorageService from "./storage";
 
 class DocumentService {
   constructor() {
@@ -19,14 +19,14 @@ class DocumentService {
           params.append(key, value);
         }
       });
-      
+
       const queryString = params.toString();
-      const url = `/api/documents${queryString ? `?${queryString}` : ''}`;
-      
+      const url = `/api/documents${queryString ? `?${queryString}` : ""}`;
+
       const response = await this.api.get(url);
       return response;
     } catch (error) {
-      console.error('Erro ao buscar documentos:', error);
+      console.error("Erro ao buscar documentos:", error);
       throw error;
     }
   }
@@ -39,7 +39,8 @@ class DocumentService {
   async getDocument(id) {
     try {
       const response = await this.api.get(`/api/documents/${id}`);
-      return response;
+      console.log(response.data);
+      return response.data;
     } catch (error) {
       console.error(`Erro ao buscar documento ${id}:`, error);
       throw error;
@@ -54,22 +55,24 @@ class DocumentService {
   async createDocument(documentData) {
     try {
       // Verificar se temos o token em memória
-      const authHeader = this.api.defaults.headers.common['Authorization'];
+      const authHeader = this.api.defaults.headers.common["Authorization"];
       if (!authHeader) {
         // Se não tiver, buscar do storage e configurar
         const tokens = await StorageService.getTokens();
         if (tokens && tokens.accessToken) {
-          this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+          this.api.defaults.headers.common[
+            "Authorization"
+          ] = `Bearer ${tokens.accessToken}`;
         } else {
-          throw new Error('Usuário não autenticado');
+          throw new Error("Usuário não autenticado");
         }
       }
-      
+
       // Enviar requisição com log adicional para depuração
-      const response = await this.api.post('/api/documents', documentData);
+      const response = await this.api.post("/api/documents", documentData);
       return response;
     } catch (error) {
-      console.error('Erro ao criar documento:', error);
+      console.error("Erro ao criar documento:", error);
       throw error;
     }
   }
@@ -83,17 +86,19 @@ class DocumentService {
   async updateDocument(id, documentData) {
     try {
       // Verificar se temos o token em memória
-      const authHeader = this.api.defaults.headers.common['Authorization'];
+      const authHeader = this.api.defaults.headers.common["Authorization"];
       if (!authHeader) {
         // Se não tiver, buscar do storage e configurar
         const tokens = await StorageService.getTokens();
         if (tokens && tokens.accessToken) {
-          this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+          this.api.defaults.headers.common[
+            "Authorization"
+          ] = `Bearer ${tokens.accessToken}`;
         } else {
-          throw new Error('Usuário não autenticado');
+          throw new Error("Usuário não autenticado");
         }
       }
-      
+
       const response = await this.api.put(`/api/documents/${id}`, documentData);
       return response;
     } catch (error) {
@@ -140,7 +145,9 @@ class DocumentService {
    */
   async restoreDocumentVersion(id, versionId) {
     try {
-      const response = await this.api.post(`/api/documents/${id}/restore`, { versionId });
+      const response = await this.api.post(`/api/documents/${id}/restore`, {
+        versionId,
+      });
       return response;
     } catch (error) {
       console.error(`Erro ao restaurar versão do documento ${id}:`, error);
@@ -156,9 +163,9 @@ class DocumentService {
    */
   async exportDocument(id, format) {
     try {
-      const response = await this.api.get(`/api/documents/${id}/export`, { 
+      const response = await this.api.get(`/api/documents/${id}/export`, {
         params: { format },
-        responseType: 'blob'
+        responseType: "blob",
       });
       return response;
     } catch (error) {

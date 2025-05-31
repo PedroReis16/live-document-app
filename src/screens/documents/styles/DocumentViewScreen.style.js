@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
   },
   metaInfo: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "start",
   },
   metaText: {
     fontSize: 14,
