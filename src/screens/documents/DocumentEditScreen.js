@@ -25,7 +25,6 @@ import DocumentEditor from "../../components/document/DocumentEditor";
 import CollaboratorsList from "../../components/document/CollaboratorsList";
 import Button from "../../components/common/Button";
 
-import SocketService from "../../services/socket";
 import ShareService from "../../services/share";
 
 const DocumentEditScreen = ({ route, navigation }) => {
