@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import ApiService from '../services/api';
 import StorageService from '../services/storage';
 import SocketService from '../services/socket';
+import { baseApiService } from '../services/BaseApiService';
 
 // Async thunks
 export const login = createAsyncThunk(
@@ -81,24 +82,58 @@ export const restoreAuthState = createAsyncThunk(
     try {
       // Buscar tokens e dados do usuário do armazenamento local
       const tokens = await StorageService.getTokens();
-      const user = await StorageService.getUserData();
+      let user = await StorageService.getUserData();
       
       if (!tokens || !tokens.accessToken || !user) {
         return rejectWithValue('Nenhuma sessão encontrada');
       }
       
-      // Restaurar tokens na API
+      // Restaurar tokens na API de forma explícita
+      baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
       ApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
+      
+      // Verificar se o token é válido (opcional - fazer uma requisição para teste)
+      try {
+        // Tentar obter o perfil do usuário para verificar se o token é válido
+        const updatedUser = await ApiService.getUserProfile();
+        if (updatedUser) {
+          // Atualizar os dados do usuário se obtiver sucesso
+          await StorageService.setUserData(updatedUser);
+          user = updatedUser;
+        }
+      } catch (verifyError) {
+        console.log('Token pode estar expirado, tentando renovar:', verifyError);
+        
+        // Se houver erro, tentar renovar o token antes de falhar
+        if (tokens.refreshToken) {
+          try {
+            const newToken = await baseApiService.refreshAuthToken();
+            if (newToken) {
+              tokens.accessToken = newToken;
+            } else {
+              // Se não conseguir renovar, limpar tudo
+              await StorageService.clearTokens();
+              await StorageService.clearUserData();
+              return rejectWithValue('Sessão expirada');
+            }
+          } catch (refreshError) {
+            console.error('Erro ao renovar token:', refreshError);
+            return rejectWithValue('Erro ao renovar sessão');
+          }
+        }
+      }
       
       // Tentar conectar ao socket
       try {
         SocketService.connect(tokens.accessToken);
       } catch (error) {
         console.log('Erro ao conectar socket durante restauração:', error);
+        // Continuar mesmo se o socket falhar
       }
       
       return { user, token: tokens.accessToken, refreshToken: tokens.refreshToken };
     } catch (error) {
+      console.error('Erro ao restaurar sessão:', error);
       return rejectWithValue(error.message || 'Erro ao restaurar sessão');
     }
   }

@@ -20,10 +20,12 @@ import DocumentItem from '../../components/document/DocumentItem';
 import Button from '../../components/common/Button';
 
 // Actions
-import { fetchDocuments, deleteDocument } from '../../store/documentSlice';
+import { fetchDocuments, deleteDocument, createDocument } from '../../store/documentSlice';
 
-// Service
+// Services
 import DocumentService from '../../services/documents';
+import { baseApiService } from '../../services/BaseApiService';
+import StorageService from '../../services/storage';
 
 const DocumentListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -86,36 +88,67 @@ const DocumentListScreen = ({ navigation }) => {
   };
 
   // Função para criar novo documento
-  const handleCreateDocument = () => {
-    // Criar documento vazio e navegar para a tela de edição
-    const newDocument = {
-      id: `local_${Date.now()}`, // Gera um ID temporário local
-      title: 'Novo documento',
-      content: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      userId: user?.id,
-    };
-    
-    // Tentar criar no servidor, com fallback para criação local
-    DocumentService.createDocument(newDocument)
-      .then(createdDoc => {
-        // Redirecionar para a tela de edição com o ID do novo documento
+  const handleCreateDocument = async () => {
+    try {
+      // Verificar explicitamente se há um token válido
+      const tokens = await StorageService.getTokens();
+      if (!tokens || !tokens.accessToken) {
+        Alert.alert('Erro de autenticação', 'Você precisa estar autenticado para criar documentos.');
+        return;
+      }
+
+      // Certificar-se de que o token está aplicado
+      baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
+
+      // Criar documento vazio e navegar para a tela de edição
+      const newDocument = {
+        title: 'Novo documento',
+        content: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: user?.id,
+      };
+      
+      // Tentar criar no servidor usando dispatch do Redux em vez do serviço diretamente
+      try {
+        const createdDoc = await dispatch(createDocument(newDocument)).unwrap();
         navigation.navigate('DocumentEdit', {
-          documentId: createdDoc.id || newDocument.id,
+          documentId: createdDoc.id,
           isSharedDocument: false
         });
-      })
-      .catch(error => {
-        console.error('Erro ao criar documento no servidor, usando versão local:', error);
+      } catch (error) {
+        console.error('Erro ao criar documento:', error);
         
-        // Mesmo com erro no servidor, ainda navega para tela de edição com documento local
-        navigation.navigate('DocumentEdit', {
-          documentId: newDocument.id,
-          isNewDocument: true, // Indica que é um novo documento (ainda não salvo no servidor)
-          documentData: newDocument // Passa os dados diretamente para evitar outra chamada à API
-        });
-      });
+        // Fallback: usar documento local em caso de erro
+        Alert.alert(
+          'Erro no servidor',
+          'Não foi possível salvar o documento no servidor. Deseja continuar com uma versão local?',
+          [
+            {
+              text: 'Não',
+              style: 'cancel'
+            },
+            {
+              text: 'Sim',
+              onPress: () => {
+                const localDoc = {
+                  ...newDocument,
+                  id: `local_${Date.now()}`
+                };
+                navigation.navigate('DocumentEdit', {
+                  documentId: localDoc.id,
+                  isNewDocument: true,
+                  documentData: localDoc
+                });
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Erro geral ao criar documento:', error);
+      Alert.alert('Erro', 'Não foi possível criar o documento. Verifique sua conexão e tente novamente.');
+    }
   };
 
   // Função para lidar com o clique em um documento

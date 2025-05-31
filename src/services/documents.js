@@ -1,4 +1,5 @@
 import { baseApiService } from './BaseApiService';
+import StorageService from './storage';
 
 class DocumentService {
   constructor() {
@@ -52,6 +53,20 @@ class DocumentService {
    */
   async createDocument(documentData) {
     try {
+      // Verificar se temos o token em memória
+      const authHeader = this.api.defaults.headers.common['Authorization'];
+      if (!authHeader) {
+        // Se não tiver, buscar do storage e configurar
+        const tokens = await StorageService.getTokens();
+        if (tokens && tokens.accessToken) {
+          this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+        } else {
+          throw new Error('Usuário não autenticado');
+        }
+      }
+      
+      // Enviar requisição com log adicional para depuração
+      console.log('Criando documento com headers:', this.api.defaults.headers);
       const response = await this.api.post('/api/documents', documentData);
       return response;
     } catch (error) {

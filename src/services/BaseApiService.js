@@ -24,10 +24,21 @@ class BaseApiService {
     // Interceptor de requisição
     this.api.interceptors.request.use(
       async (config) => {
-        // Adicionar token de acesso ao cabeçalho se disponível
-        const token = await AsyncStorage.getItem('accessToken');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        try {
+          // Tentar obter o token armazenado em memória primeiro (mais rápido)
+          if (this.api.defaults.headers.common['Authorization']) {
+            return config;
+          }
+          
+          // Se não houver token em memória, buscar do storage
+          const tokens = await StorageService.getTokens();
+          if (tokens && tokens.accessToken) {
+            config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+            // Também atualiza o header default para futuras requisições
+            this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+          }
+        } catch (error) {
+          console.error('Erro ao configurar token na requisição:', error);
         }
         return config;
       },
@@ -91,22 +102,22 @@ class BaseApiService {
     // Evitar múltiplas requisições de refresh simultaneamente
     if (!this.refreshTokenRequest) {
       this.refreshTokenRequest = (async () => {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        const tokens = await StorageService.getTokens();
         
-        if (!refreshToken) {
+        if (!tokens || !tokens.refreshToken) {
           return null;
         }
         
         try {
           const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
-            refreshToken
+            refreshToken: tokens.refreshToken
           });
           
           if (response.data && response.data.accessToken) {
             const newToken = response.data.accessToken;
             
-            // Salvar novo token
-            await AsyncStorage.setItem('accessToken', newToken);
+            // Salvar novo token usando StorageService
+            await StorageService.setTokens(newToken, tokens.refreshToken);
             
             return newToken;
           }
