@@ -90,15 +90,13 @@ const DocumentListScreen = ({ navigation }) => {
   // Função para criar novo documento
   const handleCreateDocument = async () => {
     try {
-      // Verificar explicitamente se há um token válido
-      const tokens = await StorageService.getTokens();
-      if (!tokens || !tokens.accessToken) {
+      // Obter token diretamente do estado do Redux em vez de buscar do storage
+      const { token, isAuthenticated } = useSelector(state => state.auth);
+      
+      if (!isAuthenticated || !token) {
         Alert.alert('Erro de autenticação', 'Você precisa estar autenticado para criar documentos.');
         return;
       }
-
-      // Certificar-se de que o token está aplicado
-      baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
 
       // Criar documento vazio e navegar para a tela de edição
       const newDocument = {
@@ -109,7 +107,7 @@ const DocumentListScreen = ({ navigation }) => {
         userId: user?.id,
       };
       
-      // Tentar criar no servidor usando dispatch do Redux em vez do serviço diretamente
+      // Tentar criar no servidor usando dispatch do Redux
       try {
         const createdDoc = await dispatch(createDocument(newDocument)).unwrap();
         navigation.navigate('DocumentEdit', {

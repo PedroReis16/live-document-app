@@ -80,13 +80,18 @@ export const restoreAuthState = createAsyncThunk(
   'auth/restore',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('Tentando restaurar estado de autenticação...');
+      
       // Buscar tokens e dados do usuário do armazenamento local
       const tokens = await StorageService.getTokens();
       let user = await StorageService.getUserData();
       
       if (!tokens || !tokens.accessToken || !user) {
+        console.log('Nenhuma sessão válida encontrada para restaurar');
         return rejectWithValue('Nenhuma sessão encontrada');
       }
+      
+      console.log('Tokens e dados de usuário encontrados, restaurando estado...');
       
       // Restaurar tokens na API de forma explícita
       baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
@@ -95,11 +100,13 @@ export const restoreAuthState = createAsyncThunk(
       // Verificar se o token é válido (opcional - fazer uma requisição para teste)
       try {
         // Tentar obter o perfil do usuário para verificar se o token é válido
+        console.log('Verificando se o token é válido...');
         const updatedUser = await ApiService.getUserProfile();
         if (updatedUser) {
           // Atualizar os dados do usuário se obtiver sucesso
           await StorageService.setUserData(updatedUser);
           user = updatedUser;
+          console.log('Perfil do usuário atualizado com sucesso');
         }
       } catch (verifyError) {
         console.log('Token pode estar expirado, tentando renovar:', verifyError);
@@ -107,11 +114,17 @@ export const restoreAuthState = createAsyncThunk(
         // Se houver erro, tentar renovar o token antes de falhar
         if (tokens.refreshToken) {
           try {
+            console.log('Tentando renovar o token...');
             const newToken = await baseApiService.refreshAuthToken();
             if (newToken) {
+              console.log('Token renovado com sucesso');
               tokens.accessToken = newToken;
+              // Restaurar tokens novamente após refresh
+              baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
+              ApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
             } else {
               // Se não conseguir renovar, limpar tudo
+              console.log('Falha ao renovar token, limpando dados');
               await StorageService.clearTokens();
               await StorageService.clearUserData();
               return rejectWithValue('Sessão expirada');
@@ -123,12 +136,13 @@ export const restoreAuthState = createAsyncThunk(
         }
       }
       
-      // Tentar conectar ao socket
-      try {
+      // Conectar ao socket e garantir que está conectado
+      // Não colocamos em try/catch para não ignorar falhas de conexão
+      if (!SocketService.isSocketConnected()) {
+        console.log('Conectando ao socket durante restauração de autenticação');
         SocketService.connect(tokens.accessToken);
-      } catch (error) {
-        console.log('Erro ao conectar socket durante restauração:', error);
-        // Continuar mesmo se o socket falhar
+      } else {
+        console.log('Socket já está conectado');
       }
       
       return { user, token: tokens.accessToken, refreshToken: tokens.refreshToken };

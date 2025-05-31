@@ -1,10 +1,12 @@
 import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../utils/constants';
+import StorageService from './storage';
 
 class SocketService {
   constructor() {
     this.socket = null;
     this.currentDocument = null;
+    this.currentToken = null;
     this.handlers = {
       'document-change': [],
       'user-connected': [],
@@ -20,6 +22,8 @@ class SocketService {
    * @param {String} token - Token JWT para autenticação
    */
   connect(token) {
+    this.currentToken = token;
+
     if (this.socket && this.socket.connected) {
       console.log('Socket já está conectado');
       return;
@@ -39,6 +43,31 @@ class SocketService {
   }
 
   /**
+   * Tenta reconectar usando o token mais recente
+   */
+  async reconnect() {
+    // Se temos um token na memória, usamos ele
+    let token = this.currentToken;
+    
+    // Caso contrário, tentamos buscar do storage
+    if (!token) {
+      const tokens = await StorageService.getTokens();
+      if (tokens && tokens.accessToken) {
+        token = tokens.accessToken;
+        this.currentToken = token;
+      }
+    }
+    
+    // Só tentamos conectar se tivermos um token
+    if (token) {
+      this.connect(token);
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
    * Desconecta do servidor de socket
    */
   disconnect() {
@@ -46,6 +75,7 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
       this.currentDocument = null;
+      this.currentToken = null;
     }
   }
 

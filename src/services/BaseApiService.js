@@ -14,9 +14,29 @@ class BaseApiService {
     });
 
     this.refreshTokenRequest = null;
+    this.isInitialized = false;
 
+    // Carregar tokens na inicialização
+    this.loadStoredToken();
+    
     // Configurar interceptores
     this.setupInterceptors();
+  }
+  
+  // Carregar token armazenado
+  async loadStoredToken() {
+    try {
+      const tokens = await StorageService.getTokens();
+      if (tokens && tokens.accessToken) {
+        this.setAuthToken(tokens.accessToken, tokens.refreshToken);
+        this.isInitialized = true;
+        console.log('Token carregado do storage com sucesso');
+      } else {
+        console.log('Nenhum token encontrado no storage');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar token do storage:', error);
+    }
   }
 
   // Configurar interceptores para tratamento automático de tokens
@@ -25,17 +45,27 @@ class BaseApiService {
     this.api.interceptors.request.use(
       async (config) => {
         try {
-          // Tentar obter o token armazenado em memória primeiro (mais rápido)
+          // Se já temos token no header, usar esse
           if (this.api.defaults.headers.common['Authorization']) {
             return config;
           }
           
-          // Se não houver token em memória, buscar do storage
-          const tokens = await StorageService.getTokens();
-          if (tokens && tokens.accessToken) {
-            config.headers.Authorization = `Bearer ${tokens.accessToken}`;
-            // Também atualiza o header default para futuras requisições
-            this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+          // Se não há token em memória e ainda não tentamos inicializar
+          if (!this.isInitialized) {
+            await this.loadStoredToken();
+          }
+          
+          // Verificar novamente se temos token
+          if (this.api.defaults.headers.common['Authorization']) {
+            return config;
+          } else {
+            // Última tentativa de buscar do storage
+            const tokens = await StorageService.getTokens();
+            if (tokens && tokens.accessToken) {
+              config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+              // Também atualiza o header default para futuras requisições
+              this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+            }
           }
         } catch (error) {
           console.error('Erro ao configurar token na requisição:', error);
@@ -92,8 +122,10 @@ class BaseApiService {
   setAuthToken(accessToken, refreshToken = null) {
     if (accessToken) {
       this.api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      console.log('Token definido nos headers: ' + accessToken.substring(0, 10) + '...');
     } else {
       delete this.api.defaults.headers.common['Authorization'];
+      console.log('Token removido dos headers');
     }
   }
 
