@@ -30,7 +30,7 @@ const CollaboratorsList = ({ documentId, isOwner = false }) => {
   const [error, setError] = useState(null);
 
   const { user } = useSelector((state) => state.auth);
-  const { collaborators, loading: storeLoading } = useSelector(
+  const { collaborators = [], loading: storeLoading } = useSelector(
     (state) => state.share
   );
 
@@ -249,6 +249,9 @@ const CollaboratorsList = ({ documentId, isOwner = false }) => {
     );
   };
 
+  // Garantir que collaborators seja sempre um array
+  const safeCollaborators = Array.isArray(collaborators) ? collaborators : [];
+
   return (
     <View style={styles.container}>
       {loading && !refreshing ? (
@@ -258,22 +261,19 @@ const CollaboratorsList = ({ documentId, isOwner = false }) => {
         </View>
       ) : (
         <FlatList
-          key={item.id}
-          data={collaborators}
-          keyExtractor={(item) => item.id}
+          data={safeCollaborators}
+          keyExtractor={(item) => item.id || String(Math.random())}
           renderItem={renderCollaboratorItem}
           ListEmptyComponent={renderEmptyList}
           refreshing={refreshing}
           onRefresh={handleRefresh}
           contentContainerStyle={
-            collaborators.length === 0 ? { flex: 1 } : styles.listContent
+            safeCollaborators.length === 0 ? { flex: 1 } : styles.listContent
           }
         />
       )}
     </View>
   );
 };
-
-
 
 export default CollaboratorsList;
