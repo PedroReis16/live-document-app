@@ -83,47 +83,21 @@ const LoginScreen = ({ navigation }) => {
 
     setIsLoading(true);
     try {
-      // Chamada à API
-      const response = await ApiService.login({ email, password });
-
-      // Processar resposta
-      if (response && response.accessToken) {
-        // Salvar tokens
-        await StorageService.setTokens(response.accessToken, response.refreshToken);
-        
-        // Configurar token no ApiService para futuras requisições
-        ApiService.setAuthToken(response.accessToken, response.refreshToken);
-        
-        // Salvar dados do usuário
-        await StorageService.setUserData(response.user);
-        
-        // Conectar ao socket
-        SocketService.connect(response.accessToken);
-        
-        // Dispatch para o Redux
-        dispatch(login({
-          user: response.user,
-          token: response.accessToken,
-          refreshToken: response.refreshToken
-        }));
-      } else {
-        Alert.alert('Erro', 'Não foi possível fazer login. Tente novamente.');
+      // Usar o Redux para login (centraliza a lógica de autenticação)
+      const resultAction = await dispatch(login({ email, password }));
+      
+      // Verificar se o login foi bem-sucedido
+      if (login.fulfilled.match(resultAction)) {
+        // Login bem-sucedido - a navegação acontecerá baseada no estado isAuthenticated
+        // O authSlice já cuidou de salvar tokens, conectar socket, etc.
+      } else if (login.rejected.match(resultAction)) {
+        // Se rejeitado, pegar a mensagem de erro
+        const errorMessage = resultAction.payload || 'Erro ao fazer login. Por favor, tente novamente.';
+        Alert.alert('Erro', errorMessage);
       }
     } catch (error) {
       console.error('Erro no login:', error);
-      
-      // Mensagem de erro personalizada
-      let errorMessage = 'Erro ao fazer login. Por favor, tente novamente.';
-      
-      if (error.response) {
-        if (error.response.status === 401) {
-          errorMessage = 'Email ou senha incorretos';
-        } else if (error.response.data && error.response.data.message) {
-          errorMessage = error.response.data.message;
-        }
-      }
-      
-      Alert.alert('Erro', errorMessage);
+      Alert.alert('Erro', 'Erro ao fazer login. Por favor, tente novamente.');
     } finally {
       setIsLoading(false);
     }
