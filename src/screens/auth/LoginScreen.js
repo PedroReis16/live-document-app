@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   StatusBar,
   Alert,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { Feather } from "@expo/vector-icons";
@@ -109,9 +110,15 @@ const LoginScreen = ({ navigation }) => {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.inner}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
             {/* Cabeçalho e Logo */}
             <View style={styles.header}>
               <Image
@@ -192,7 +199,7 @@ const LoginScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -207,9 +214,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  inner: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingBottom: 40,
     justifyContent: "center",
   },
   header: {

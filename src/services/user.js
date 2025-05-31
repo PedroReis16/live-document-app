@@ -1,4 +1,4 @@
-import { baseApiService } from './BaseApiService';
+import { baseApiService } from "./BaseApiService";
 
 class UserService {
   constructor() {
@@ -11,10 +11,10 @@ class UserService {
    */
   async getUserProfile() {
     try {
-      const response = await this.api.get('/api/users/me');
+      const response = await this.api.get("/api/users/me");
       return response;
     } catch (error) {
-      console.error('Erro ao buscar perfil do usuário:', error);
+      console.error("Erro ao buscar perfil do usuário:", error);
       throw error;
     }
   }
@@ -26,10 +26,10 @@ class UserService {
    */
   async updateProfile(profileData) {
     try {
-      const response = await this.api.put('/api/users/me', profileData);
+      const response = await this.api.put("/api/users/me", profileData);
       return response;
     } catch (error) {
-      console.error('Erro ao atualizar perfil:', error);
+      console.error("Erro ao atualizar perfil:", error);
       throw error;
     }
   }
@@ -41,10 +41,13 @@ class UserService {
    */
   async updatePassword(passwordData) {
     try {
-      const response = await this.api.put('/api/users/me/password', passwordData);
+      const response = await this.api.put(
+        "/api/users/me/password",
+        passwordData
+      );
       return response;
     } catch (error) {
-      console.error('Erro ao atualizar senha:', error);
+      console.error("Erro ao atualizar senha:", error);
       throw error;
     }
   }
@@ -54,16 +57,26 @@ class UserService {
    * @param {FormData} formData - FormData com a imagem
    * @returns {Promise} Promessa com URL do avatar
    */
-  async uploadAvatar(formData) {
+  async uploadAvatar(avatar) {
     try {
-      const response = await this.api.post('/api/users/me/avatar', formData, {
+      if (!avatar) return;
+
+      const formAvatar = new FormData();
+
+      formAvatar.append("avatar", {
+        uri: avatar.uri,
+        type: avatar.type || "image/jpeg",
+        name: avatar.fileName || "avatar.jpg",
+      });
+
+      const response = await this.api.post("/api/users/me/avatar", formAvatar, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          "Content-Type": "multipart/form-data",
+        },
       });
       return response;
     } catch (error) {
-      console.error('Erro ao fazer upload de avatar:', error);
+      console.error("Erro ao fazer upload de avatar:", error);
       throw error;
     }
   }
@@ -74,10 +87,10 @@ class UserService {
    */
   async removeAvatar() {
     try {
-      const response = await this.api.delete('/api/users/me/avatar');
+      const response = await this.api.delete("/api/users/me/avatar");
       return response;
     } catch (error) {
-      console.error('Erro ao remover avatar:', error);
+      console.error("Erro ao remover avatar:", error);
       throw error;
     }
   }
@@ -89,10 +102,13 @@ class UserService {
    */
   async updatePreferences(preferences) {
     try {
-      const response = await this.api.put('/api/users/me/preferences', preferences);
+      const response = await this.api.put(
+        "/api/users/me/preferences",
+        preferences
+      );
       return response;
     } catch (error) {
-      console.error('Erro ao atualizar preferências:', error);
+      console.error("Erro ao atualizar preferências:", error);
       throw error;
     }
   }
