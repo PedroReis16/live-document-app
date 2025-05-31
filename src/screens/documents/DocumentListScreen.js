@@ -27,11 +27,6 @@ import {
 } from "../../store/documentSlice";
 
 // Services
-import DocumentService from "../../services/documents";
-import { baseApiService } from "../../services/BaseApiService";
-import StorageService from "../../services/storage";
-import { create } from "lodash";
-
 const DocumentListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -46,6 +41,9 @@ const DocumentListScreen = ({ navigation }) => {
   useEffect(() => {
     // Verificar se documents existe e é um array
     if (documents && Array.isArray(documents)) {
+      console.log(
+        `Filtrando ${documents.length} documentos com texto: "${searchText}", aba: ${activeTab}`
+      );
       let filtered = [...documents];
 
       // Filtrar por texto de busca
@@ -67,9 +65,11 @@ const DocumentListScreen = ({ navigation }) => {
         return new Date(b.updatedAt) - new Date(a.updatedAt);
       });
 
+      console.log(`Resultado da filtragem: ${filtered.length} documentos`);
       setFilteredDocuments(filtered);
     } else {
       // Se documents não for um array válido, inicializar filteredDocuments como array vazio
+      console.warn("Documents não é um array válido:", documents);
       setFilteredDocuments([]);
     }
   }, [documents, searchText, activeTab]);
@@ -83,7 +83,8 @@ const DocumentListScreen = ({ navigation }) => {
   const loadDocuments = async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchDocuments()).unwrap();
+      const result = await dispatch(fetchDocuments()).unwrap();
+      console.log("Documentos carregados:", result);
     } catch (error) {
       console.error("Erro ao carregar documentos:", error);
       Alert.alert(
@@ -120,10 +121,10 @@ const DocumentListScreen = ({ navigation }) => {
       try {
         const createdDoc = await dispatch(createDocument(newDocument)).unwrap();
 
-        console.log(createdDoc);
+        console.log("Documento criado:", createdDoc);
 
         navigation.navigate("DocumentEdit", {
-          documentId: createdDoc.data._id,
+          documentId: createdDoc.data?._id || createdDoc.data?.id,
           isSharedDocument: false,
           isNewDocument: true,
           documentData: createdDoc.data,
@@ -168,19 +169,22 @@ const DocumentListScreen = ({ navigation }) => {
 
   // Função para lidar com o clique em um documento
   const handleDocumentPress = (document) => {
+    const documentId = document.id || document._id;
     navigation.navigate("DocumentView", {
-      documentId: document.id,
+      documentId: documentId,
       isSharedDocument: document.shared || false,
     });
   };
 
   // Função para compartilhar documento
   const handleShareDocument = (document) => {
-    navigation.navigate("Share", { documentId: document.id });
+    const documentId = document.id || document._id;
+    navigation.navigate("Share", { documentId: documentId });
   };
 
   // Função para excluir documento
   const handleDeleteDocument = (document) => {
+    const documentId = document.id || document._id;
     Alert.alert(
       "Excluir documento",
       `Tem certeza que deseja excluir "${document.title}"?`,
@@ -191,7 +195,7 @@ const DocumentListScreen = ({ navigation }) => {
           style: "destructive",
           onPress: async () => {
             try {
-              await dispatch(deleteDocument(document.id)).unwrap();
+              await dispatch(deleteDocument(documentId)).unwrap();
               Alert.alert("Sucesso", "Documento excluído com sucesso.");
             } catch (error) {
               console.error("Erro ao excluir documento:", error);
@@ -248,6 +252,14 @@ const DocumentListScreen = ({ navigation }) => {
       </View>
     );
   };
+
+  // Adicionar log para debug
+  console.log("Estado atual:", {
+    documentsCount: documents?.length || 0,
+    filteredDocumentsCount: filteredDocuments?.length || 0,
+    loading,
+    activeTab,
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>

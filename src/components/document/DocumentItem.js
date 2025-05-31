@@ -34,7 +34,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
     navigation.navigate("DocumentView", {
       documentId: docId,
-      isSharedDocument: document.shared || false,
+      isSharedDocument: document.shared || document.isShared || false,
     });
   };
 
@@ -71,6 +71,9 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
     return null;
   }
 
+  // Determinar se o documento é compartilhado (verifica ambas propriedades)
+  const isShared = document.shared || document.isShared || false;
+
   return (
     <TouchableOpacity
       key={docId}
@@ -81,9 +84,9 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
     >
       <View style={styles.iconContainer}>
         <Feather
-          name={document.shared ? "file-plus" : "file-text"}
+          name={isShared ? "file-plus" : "file-text"}
           size={24}
-          color={document.shared ? "#2196f3" : "#666"}
+          color={isShared ? "#2196f3" : "#666"}
         />
       </View>
 
@@ -93,7 +96,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
             {document.title || "Documento sem título"}
           </Text>
 
-          {document.shared && (
+          {isShared && (
             <View style={styles.badge}>
               <Feather name="users" size={12} color="#fff" />
             </View>
@@ -138,7 +141,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
           <Feather name="share-2" size={20} color="#2196f3" />
         </TouchableOpacity>
 
-        {!document.shared && (
+        {!isShared && (
           <TouchableOpacity
             key={`delete-${docId}`}
             style={styles.actionButton}
