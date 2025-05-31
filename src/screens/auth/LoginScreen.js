@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,29 +11,31 @@ import {
   Keyboard,
   StatusBar,
   Alert,
-  SafeAreaView
-} from 'react-native';
-import { useDispatch } from 'react-redux';
-import { Feather } from '@expo/vector-icons';
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
+import { useDispatch } from "react-redux";
+import { Feather } from "@expo/vector-icons";
+import { styles } from "./styles/LoginScreen.style";
 
 // Components
-import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
+import Input from "../../components/common/Input";
+import Button from "../../components/common/Button";
 
 // Services
-import ApiService from '../../services/api';
-import StorageService from '../../services/storage';
-import SocketService from '../../services/socket';
+import ApiService from "../../services/api";
+import StorageService from "../../services/storage";
+import SocketService from "../../services/socket";
 
 // Actions
-import { login } from '../../store/authSlice';
+import { login } from "../../store/authSlice";
 
 const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
 
   // Estado do formulário
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -58,17 +60,17 @@ const LoginScreen = ({ navigation }) => {
 
     // Validar email
     if (!email) {
-      newErrors.email = 'Email é obrigatório';
+      newErrors.email = "Email é obrigatório";
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        newErrors.email = 'Digite um email válido';
+        newErrors.email = "Digite um email válido";
       }
     }
 
     // Validar senha
     if (!password) {
-      newErrors.password = 'Senha é obrigatória';
+      newErrors.password = "Senha é obrigatória";
     }
 
     setErrors(newErrors);
@@ -107,15 +109,21 @@ const LoginScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.inner}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
             {/* Cabeçalho e Logo */}
             <View style={styles.header}>
               <Image
-                source={require('../../../assets/icon.png')} // Ajuste para seu logo
+                source={require("../../../assets/icon.png")} // Ajuste para seu logo
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -133,7 +141,7 @@ const LoginScreen = ({ navigation }) => {
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
-                    if (errors.email) setErrors({...errors, email: null});
+                    if (errors.email) setErrors({ ...errors, email: null });
                   }}
                   placeholder="seu.email@exemplo.com"
                   keyboardType="email-address"
@@ -152,7 +160,8 @@ const LoginScreen = ({ navigation }) => {
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
-                    if (errors.password) setErrors({...errors, password: null});
+                    if (errors.password)
+                      setErrors({ ...errors, password: null });
                   }}
                   placeholder="Sua senha"
                   secureTextEntry={!showPassword}
@@ -168,7 +177,7 @@ const LoginScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.forgotPassword}
-                onPress={() => navigation.navigate('ForgotPassword')}
+                onPress={() => navigation.navigate("ForgotPassword")}
               >
                 <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
@@ -185,95 +194,18 @@ const LoginScreen = ({ navigation }) => {
               <View style={styles.registerContainer}>
                 <Text style={styles.registerText}>Não tem uma conta?</Text>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('Register')}
+                  onPress={() => navigation.navigate("Register")}
                 >
                   <Text style={styles.registerLink}>Registre-se</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff'
-  },
-  container: {
-    flex: 1,
-  },
-  inner: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  form: {
-    width: '100%',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#f44336',
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    color: '#2196f3',
-    fontSize: 14,
-  },
-  loginButton: {
-    marginBottom: 16,
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  registerText: {
-    color: '#666',
-    marginRight: 4,
-  },
-  registerLink: {
-    color: '#2196f3',
-    fontWeight: 'bold',
-  }
-});
 
 export default LoginScreen;

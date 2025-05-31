@@ -7,8 +7,9 @@ export const fetchDocuments = createAsyncThunk(
   "documents/fetchAll",
   async (_, { rejectWithValue }) => {
     try {
-      const documents = await DocumentService.getDocuments();
-      return documents;
+      const response = await DocumentService.getDocuments();
+      // Retornar response.data para lidar com o formato correto da resposta
+      return response.data || response;
     } catch (error) {
       return rejectWithValue(error.message || "Erro ao carregar documentos");
     }
@@ -196,7 +197,28 @@ const documentSlice = createSlice({
       })
       .addCase(fetchDocuments.fulfilled, (state, action) => {
         state.loading = false;
-        state.documents = action.payload;
+        
+        // Processar a resposta garantindo que os documentos tenham um campo 'id'
+        let documents = action.payload;
+        
+        // Se documents for um objeto com uma propriedade de dados, extrair os documentos
+        if (documents && typeof documents === 'object' && documents.documents) {
+          documents = documents.documents;
+        }
+        
+        // Garantir que é um array
+        if (!Array.isArray(documents)) {
+          documents = [];
+        }
+        
+        // Normalizar documentos para garantir que todos tenham um campo 'id'
+        state.documents = documents.map(doc => {
+          // Se o documento já tiver um campo 'id', usá-lo; caso contrário, usar o '_id'
+          if (!doc.id && doc._id) {
+            return { ...doc, id: doc._id };
+          }
+          return doc;
+        });
       })
       .addCase(fetchDocuments.rejected, (state, action) => {
         state.loading = false;
@@ -210,7 +232,21 @@ const documentSlice = createSlice({
       })
       .addCase(fetchDocumentById.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentDocument = action.payload;
+        
+        // Normalizar o documento da mesma forma que nas outras funções
+        let document = action.payload;
+        
+        // Se a resposta tem uma propriedade data, extrair o documento
+        if (document && document.data) {
+          document = document.data;
+        }
+        
+        // Garantir que o documento tem um campo 'id'
+        if (document && !document.id && document._id) {
+          document = { ...document, id: document._id };
+        }
+        
+        state.currentDocument = document;
       })
       .addCase(fetchDocumentById.rejected, (state, action) => {
         state.loading = false;
@@ -229,8 +265,21 @@ const documentSlice = createSlice({
           state.documents = [];
         }
 
-        state.documents.unshift(action.payload);
-        state.currentDocument = action.payload;
+        // Normalizar o documento da mesma forma que na função fetchDocuments
+        let newDoc = action.payload;
+        
+        // Se a resposta tem uma propriedade data, extrair o documento
+        if (newDoc && newDoc.data) {
+          newDoc = newDoc.data;
+        }
+        
+        // Garantir que o documento tem um campo 'id'
+        if (newDoc && !newDoc.id && newDoc._id) {
+          newDoc = { ...newDoc, id: newDoc._id };
+        }
+        
+        state.documents.unshift(newDoc);
+        state.currentDocument = newDoc;
       })
       .addCase(createDocument.rejected, (state, action) => {
         state.loading = false;
@@ -239,28 +288,54 @@ const documentSlice = createSlice({
 
       // Update document
       .addCase(updateDocument.pending, (state) => {
-        state.loading = true;
+        state.loading = false;
         state.error = null;
       })
       .addCase(updateDocument.fulfilled, (state, action) => {
         state.loading = false;
 
+        // Normalizar o documento da resposta
+        let updatedDoc = action.payload;
+        
+        // Se a resposta tem uma propriedade data, extrair o documento
+        if (updatedDoc && updatedDoc.data) {
+          updatedDoc = updatedDoc.data;
+        }
+        
+        // Garantir que o documento tem um campo 'id'
+        if (updatedDoc && !updatedDoc.id && updatedDoc._id) {
+          updatedDoc = { ...updatedDoc, id: updatedDoc._id };
+        }
+
         // Atualizar na lista se existir
         if (state.documents) {
           const index = state.documents.findIndex(
-            (doc) => doc.id === action.payload.id
+            (doc) => doc.id === updatedDoc.id
           );
           if (index !== -1) {
-            state.documents[index] = action.payload;
+            // Atualizar documento existente
+            state.documents[index] = updatedDoc;
+          } else {
+            // Se não encontrou, pode ser um documento que precisa ser adicionado à lista
+            state.documents.unshift(updatedDoc);
+          }
+
+          // Remover documentos locais com o mesmo título (se existirem)
+          if (!updatedDoc.id.startsWith('local_')) {
+            state.documents = state.documents.filter(doc => 
+              !(doc.id.startsWith('local_') && 
+                doc.title === updatedDoc.title && 
+                doc.id !== updatedDoc.id)
+            );
           }
         }
 
         // Atualizar documento atual se for o mesmo
         if (
           state.currentDocument &&
-          state.currentDocument.id === action.payload.id
+          state.currentDocument.id === updatedDoc.id
         ) {
-          state.currentDocument = action.payload;
+          state.currentDocument = updatedDoc;
         }
       })
       .addCase(updateDocument.rejected, (state, action) => {

@@ -1,12 +1,12 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import ApiService from '../services/api';
-import StorageService from '../services/storage';
-import SocketService from '../services/socket';
-import { baseApiService } from '../services/BaseApiService';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import ApiService from "../services/api";
+import StorageService from "../services/storage";
+import SocketService from "../services/socket";
+import { baseApiService } from "../services/BaseApiService";
 
 // Async thunks
 export const login = createAsyncThunk(
-  'auth/login',
+  "auth/login",
   async (credentials, { rejectWithValue }) => {
     try {
       // Fazer login na API
@@ -17,164 +17,179 @@ export const login = createAsyncThunk(
       ApiService.setAuthToken(accessToken, refreshToken);
       await StorageService.setUserData(user);
       await StorageService.setTokens(accessToken, refreshToken);
-      
+
       // Conectar ao socket
-      SocketService.connect(token);
-      
+      SocketService.connect(accessToken);
+
       return response;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao fazer login');
+      return rejectWithValue(error.message || "Erro ao fazer login");
     }
   }
 );
 
 export const register = createAsyncThunk(
-  'auth/register',
+  "auth/register",
   async (userData, { rejectWithValue }) => {
     try {
       // Registrar na API
       const response = await ApiService.register(userData);
-      
+
       // Salvar tokens e dados do usuário no armazenamento local
-      const { user, token, refreshToken } = response;
-      ApiService.setAuthToken(token, refreshToken);
+      const { user, accessToken, refreshToken } = response;
+      ApiService.setAuthToken(accessToken, refreshToken);
       await StorageService.setUserData(user);
-      await StorageService.setTokens(token, refreshToken);
-      
+      await StorageService.setTokens(accessToken, refreshToken);
+
       // Conectar ao socket
-      SocketService.connect(token);
-      
+      SocketService.connect(accessToken);
+
       return response;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao criar conta');
+      return rejectWithValue(error.message || "Erro ao criar conta");
     }
   }
 );
 
 export const logout = createAsyncThunk(
-  'auth/logout',
+  "auth/logout",
   async (_, { rejectWithValue }) => {
     try {
       // Fazer logout na API se estiver online
       try {
         await ApiService.logout();
       } catch (error) {
-        console.log('Erro ao fazer logout na API, continuando localmente:', error);
+        console.log(
+          "Erro ao fazer logout na API, continuando localmente:",
+          error
+        );
       }
-      
+
       // Desconectar socket
       SocketService.disconnect();
-      
+
       // Limpar tokens
       ApiService.setAuthToken(null, null);
       await StorageService.clearTokens();
-      
+
       return true;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao fazer logout');
+      return rejectWithValue(error.message || "Erro ao fazer logout");
     }
   }
 );
 
 export const restoreAuthState = createAsyncThunk(
-  'auth/restore',
+  "auth/restore",
   async (_, { rejectWithValue }) => {
     try {
-      console.log('Tentando restaurar estado de autenticação...');
-      
+      console.log("Tentando restaurar estado de autenticação...");
+
       // Buscar tokens e dados do usuário do armazenamento local
       const tokens = await StorageService.getTokens();
       let user = await StorageService.getUserData();
-      
+
       if (!tokens || !tokens.accessToken || !user) {
-        console.log('Nenhuma sessão válida encontrada para restaurar');
-        return rejectWithValue('Nenhuma sessão encontrada');
+        console.log("Nenhuma sessão válida encontrada para restaurar");
+        return rejectWithValue("Nenhuma sessão encontrada");
       }
-      
-      console.log('Tokens e dados de usuário encontrados, restaurando estado...');
-      
+
+      console.log(
+        "Tokens e dados de usuário encontrados, restaurando estado..."
+      );
+
       // Restaurar tokens na API de forma explícita
       baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
       ApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
-      
+
       // Verificar se o token é válido (opcional - fazer uma requisição para teste)
       try {
         // Tentar obter o perfil do usuário para verificar se o token é válido
-        console.log('Verificando se o token é válido...');
+        console.log("Verificando se o token é válido...");
         const updatedUser = await ApiService.getUserProfile();
         if (updatedUser) {
           // Atualizar os dados do usuário se obtiver sucesso
           await StorageService.setUserData(updatedUser);
           user = updatedUser;
-          console.log('Perfil do usuário atualizado com sucesso');
+          console.log("Perfil do usuário atualizado com sucesso");
         }
       } catch (verifyError) {
-        console.log('Token pode estar expirado, tentando renovar:', verifyError);
-        
+        console.log(
+          "Token pode estar expirado, tentando renovar:",
+          verifyError
+        );
+
         // Se houver erro, tentar renovar o token antes de falhar
         if (tokens.refreshToken) {
           try {
-            console.log('Tentando renovar o token...');
+            console.log("Tentando renovar o token...");
             const newToken = await baseApiService.refreshAuthToken();
             if (newToken) {
-              console.log('Token renovado com sucesso');
+              console.log("Token renovado com sucesso");
               tokens.accessToken = newToken;
               // Restaurar tokens novamente após refresh
-              baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
+              baseApiService.setAuthToken(
+                tokens.accessToken,
+                tokens.refreshToken
+              );
               ApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
             } else {
               // Se não conseguir renovar, limpar tudo
-              console.log('Falha ao renovar token, limpando dados');
+              console.log("Falha ao renovar token, limpando dados");
               await StorageService.clearTokens();
               await StorageService.clearUserData();
-              return rejectWithValue('Sessão expirada');
+              return rejectWithValue("Sessão expirada");
             }
           } catch (refreshError) {
-            console.error('Erro ao renovar token:', refreshError);
-            return rejectWithValue('Erro ao renovar sessão');
+            console.error("Erro ao renovar token:", refreshError);
+            return rejectWithValue("Erro ao renovar sessão");
           }
         }
       }
-      
+
       // Conectar ao socket e garantir que está conectado
       // Não colocamos em try/catch para não ignorar falhas de conexão
       if (!SocketService.isSocketConnected()) {
-        console.log('Conectando ao socket durante restauração de autenticação');
+        console.log("Conectando ao socket durante restauração de autenticação");
         SocketService.connect(tokens.accessToken);
       } else {
-        console.log('Socket já está conectado');
+        console.log("Socket já está conectado");
       }
-      
-      return { user, token: tokens.accessToken, refreshToken: tokens.refreshToken };
+
+      return {
+        user,
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      };
     } catch (error) {
-      console.error('Erro ao restaurar sessão:', error);
-      return rejectWithValue(error.message || 'Erro ao restaurar sessão');
+      console.error("Erro ao restaurar sessão:", error);
+      return rejectWithValue(error.message || "Erro ao restaurar sessão");
     }
   }
 );
 
 export const updateUserProfile = createAsyncThunk(
-  'auth/updateProfile',
+  "auth/updateProfile",
   async (profileData, { rejectWithValue, getState }) => {
     try {
       const { auth } = getState();
       const userId = auth.user.id;
-      
+
       // Atualizar perfil na API
       const updatedUser = await ApiService.updateProfile(userId, profileData);
-      
+
       // Atualizar no armazenamento local
       await StorageService.setUserData(updatedUser);
-      
+
       return updatedUser;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao atualizar perfil');
+      return rejectWithValue(error.message || "Erro ao atualizar perfil");
     }
   }
 );
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState: {
     user: null,
     token: null,
@@ -182,7 +197,7 @@ const authSlice = createSlice({
     loading: false,
     error: null,
     isAuthenticated: false,
-    isInitialized: false
+    isInitialized: false,
   },
   reducers: {
     resetAuthError(state) {
@@ -190,7 +205,7 @@ const authSlice = createSlice({
     },
     setAuthInitialized(state) {
       state.isInitialized = true;
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -203,7 +218,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.token = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
       })
       .addCase(login.rejected, (state, action) => {
@@ -211,7 +226,7 @@ const authSlice = createSlice({
         state.error = action.payload;
         state.isAuthenticated = false;
       })
-      
+
       // Register
       .addCase(register.pending, (state) => {
         state.loading = true;
@@ -229,7 +244,7 @@ const authSlice = createSlice({
         state.error = action.payload;
         state.isAuthenticated = false;
       })
-      
+
       // Logout
       .addCase(logout.pending, (state) => {
         state.loading = true;
@@ -249,7 +264,7 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.isAuthenticated = false;
       })
-      
+
       // Restore auth state
       .addCase(restoreAuthState.pending, (state) => {
         state.loading = true;
@@ -270,7 +285,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.isInitialized = true;
       })
-      
+
       // Update profile
       .addCase(updateUserProfile.pending, (state) => {
         state.loading = true;
@@ -284,7 +299,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       });
-  }
+  },
 });
 
 export const { resetAuthError, setAuthInitialized } = authSlice.actions;

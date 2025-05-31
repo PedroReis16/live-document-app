@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -10,31 +9,37 @@ import {
   TextInput,
   Alert,
   SafeAreaView,
-  StatusBar
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useSelector, useDispatch } from 'react-redux';
+  StatusBar,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { useSelector, useDispatch } from "react-redux";
+import { styles } from "./styles/DocumentListScreen.style";
 
 // Components
-import DocumentItem from '../../components/document/DocumentItem';
-import Button from '../../components/common/Button';
+import DocumentItem from "../../components/document/DocumentItem";
+import Button from "../../components/common/Button";
 
 // Actions
-import { fetchDocuments, deleteDocument, createDocument } from '../../store/documentSlice';
+import {
+  fetchDocuments,
+  deleteDocument,
+  createDocument,
+} from "../../store/documentSlice";
 
 // Services
-import DocumentService from '../../services/documents';
-import { baseApiService } from '../../services/BaseApiService';
-import StorageService from '../../services/storage';
+import DocumentService from "../../services/documents";
+import { baseApiService } from "../../services/BaseApiService";
+import StorageService from "../../services/storage";
+import { create } from "lodash";
 
 const DocumentListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { user } = useSelector(state => state.auth);
-  const { documents, loading } = useSelector(state => state.documents);
+  const { user } = useSelector((state) => state.auth);
+  const { documents, loading } = useSelector((state) => state.documents);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'my', 'shared'
+  const [searchText, setSearchText] = useState("");
+  const [activeTab, setActiveTab] = useState("all"); // 'all', 'my', 'shared'
   const [filteredDocuments, setFilteredDocuments] = useState([]);
 
   // Efeito para filtrar documentos baseado na busca e aba ativa
@@ -42,26 +47,26 @@ const DocumentListScreen = ({ navigation }) => {
     // Verificar se documents existe e é um array
     if (documents && Array.isArray(documents)) {
       let filtered = [...documents];
-      
+
       // Filtrar por texto de busca
       if (searchText) {
-        filtered = filtered.filter(doc => 
+        filtered = filtered.filter((doc) =>
           doc.title.toLowerCase().includes(searchText.toLowerCase())
         );
       }
-      
+
       // Filtrar por tipo (meus ou compartilhados)
-      if (activeTab === 'my') {
-        filtered = filtered.filter(doc => !doc.shared);
-      } else if (activeTab === 'shared') {
-        filtered = filtered.filter(doc => doc.shared);
+      if (activeTab === "my") {
+        filtered = filtered.filter((doc) => !doc.shared);
+      } else if (activeTab === "shared") {
+        filtered = filtered.filter((doc) => doc.shared);
       }
-      
+
       // Ordenar por data de atualização (mais recentes primeiro)
       filtered.sort((a, b) => {
         return new Date(b.updatedAt) - new Date(a.updatedAt);
       });
-      
+
       setFilteredDocuments(filtered);
     } else {
       // Se documents não for um array válido, inicializar filteredDocuments como array vazio
@@ -80,8 +85,11 @@ const DocumentListScreen = ({ navigation }) => {
     try {
       await dispatch(fetchDocuments()).unwrap();
     } catch (error) {
-      console.error('Erro ao carregar documentos:', error);
-      Alert.alert('Erro', 'Não foi possível carregar seus documentos. Tente novamente.');
+      console.error("Erro ao carregar documentos:", error);
+      Alert.alert(
+        "Erro",
+        "Não foi possível carregar seus documentos. Tente novamente."
+      );
     } finally {
       setRefreshing(false);
     }
@@ -92,101 +100,115 @@ const DocumentListScreen = ({ navigation }) => {
     try {
       // Use token from the auth state that was already retrieved at component level
       if (!user) {
-        Alert.alert('Erro de autenticação', 'Você precisa estar autenticado para criar documentos.');
+        Alert.alert(
+          "Erro de autenticação",
+          "Você precisa estar autenticado para criar documentos."
+        );
         return;
       }
 
       // Criar documento vazio e navegar para a tela de edição
       const newDocument = {
-        title: 'Novo documento',
-        content: '',
+        title: "Novo documento",
+        content: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         userId: user?.id,
       };
-      
+
       // Tentar criar no servidor usando dispatch do Redux
       try {
         const createdDoc = await dispatch(createDocument(newDocument)).unwrap();
-        navigation.navigate('DocumentEdit', {
-          documentId: createdDoc.id,
-          isSharedDocument: false
+
+        console.log(createdDoc);
+
+        navigation.navigate("DocumentEdit", {
+          documentId: createdDoc.data._id,
+          isSharedDocument: false,
+          isNewDocument: true,
+          documentData: createdDoc.data,
         });
       } catch (error) {
-        console.error('Erro ao criar documento:', error);
-        
+        console.error("Erro ao criar documento:", error);
+
         // Fallback: usar documento local em caso de erro
         Alert.alert(
-          'Erro no servidor',
-          'Não foi possível salvar o documento no servidor. Deseja continuar com uma versão local?',
+          "Erro no servidor",
+          "Não foi possível salvar o documento no servidor. Deseja continuar com uma versão local?",
           [
             {
-              text: 'Não',
-              style: 'cancel'
+              text: "Não",
+              style: "cancel",
             },
             {
-              text: 'Sim',
+              text: "Sim",
               onPress: () => {
                 const localDoc = {
                   ...newDocument,
-                  id: `local_${Date.now()}`
+                  id: `local_${Date.now()}`,
                 };
-                navigation.navigate('DocumentEdit', {
+                navigation.navigate("DocumentEdit", {
                   documentId: localDoc.id,
                   isNewDocument: true,
-                  documentData: localDoc
+                  documentData: localDoc,
                 });
-              }
-            }
+              },
+            },
           ]
         );
       }
     } catch (error) {
-      console.error('Erro geral ao criar documento:', error);
-      Alert.alert('Erro', 'Não foi possível criar o documento. Verifique sua conexão e tente novamente.');
+      console.error("Erro geral ao criar documento:", error);
+      Alert.alert(
+        "Erro",
+        "Não foi possível criar o documento. Verifique sua conexão e tente novamente."
+      );
     }
   };
 
   // Função para lidar com o clique em um documento
   const handleDocumentPress = (document) => {
-    navigation.navigate('DocumentView', {
+    navigation.navigate("DocumentView", {
       documentId: document.id,
-      isSharedDocument: document.shared || false
+      isSharedDocument: document.shared || false,
     });
   };
 
   // Função para compartilhar documento
   const handleShareDocument = (document) => {
-    navigation.navigate('Share', { documentId: document.id });
+    navigation.navigate("Share", { documentId: document.id });
   };
 
   // Função para excluir documento
   const handleDeleteDocument = (document) => {
     Alert.alert(
-      'Excluir documento',
+      "Excluir documento",
       `Tem certeza que deseja excluir "${document.title}"?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Excluir', 
-          style: 'destructive',
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
           onPress: async () => {
             try {
               await dispatch(deleteDocument(document.id)).unwrap();
-              Alert.alert('Sucesso', 'Documento excluído com sucesso.');
+              Alert.alert("Sucesso", "Documento excluído com sucesso.");
             } catch (error) {
-              console.error('Erro ao excluir documento:', error);
-              Alert.alert('Erro', 'Não foi possível excluir o documento. Tente novamente.');
+              console.error("Erro ao excluir documento:", error);
+              Alert.alert(
+                "Erro",
+                "Não foi possível excluir o documento. Tente novamente."
+              );
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
   // Renderizar um item da lista
   const renderItem = ({ item }) => (
-    <DocumentItem 
+    <DocumentItem
       document={item}
       onLongPress={handleDocumentPress}
       onDelete={handleDeleteDocument}
@@ -205,19 +227,19 @@ const DocumentListScreen = ({ navigation }) => {
       );
     }
 
-    let message = 'Você não possui documentos.';
-    if (activeTab === 'shared') {
-      message = 'Não há documentos compartilhados com você.';
+    let message = "Você não possui documentos.";
+    if (activeTab === "shared") {
+      message = "Não há documentos compartilhados com você.";
     } else if (searchText) {
-      message = 'Nenhum documento encontrado com esse termo.';
+      message = "Nenhum documento encontrado com esse termo.";
     }
 
     return (
       <View style={styles.emptyContainer}>
         <Feather name="file-text" size={64} color="#ccc" />
         <Text style={styles.emptyText}>{message}</Text>
-        {activeTab !== 'shared' && (
-          <Button 
+        {activeTab !== "shared" && (
+          <Button
             title="Criar novo documento"
             onPress={handleCreateDocument}
             style={styles.createButton}
@@ -234,7 +256,7 @@ const DocumentListScreen = ({ navigation }) => {
         {/* Cabeçalho */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Meus Documentos</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.headerButton}
             onPress={handleCreateDocument}
           >
@@ -244,7 +266,12 @@ const DocumentListScreen = ({ navigation }) => {
 
         {/* Campo de busca */}
         <View style={styles.searchContainer}>
-          <Feather name="search" size={20} color="#999" style={styles.searchIcon} />
+          <Feather
+            name="search"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar documentos..."
@@ -252,8 +279,8 @@ const DocumentListScreen = ({ navigation }) => {
             onChangeText={setSearchText}
             clearButtonMode="always"
           />
-          {searchText !== '' && (
-            <TouchableOpacity onPress={() => setSearchText('')}>
+          {searchText !== "" && (
+            <TouchableOpacity onPress={() => setSearchText("")}>
               <Feather name="x" size={20} color="#999" />
             </TouchableOpacity>
           )}
@@ -264,48 +291,48 @@ const DocumentListScreen = ({ navigation }) => {
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'all' && styles.activeTabButton
+              activeTab === "all" && styles.activeTabButton,
             ]}
-            onPress={() => setActiveTab('all')}
+            onPress={() => setActiveTab("all")}
           >
-            <Text 
+            <Text
               style={[
                 styles.tabText,
-                activeTab === 'all' && styles.activeTabText
+                activeTab === "all" && styles.activeTabText,
               ]}
             >
               Todos
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'my' && styles.activeTabButton
+              activeTab === "my" && styles.activeTabButton,
             ]}
-            onPress={() => setActiveTab('my')}
+            onPress={() => setActiveTab("my")}
           >
-            <Text 
+            <Text
               style={[
                 styles.tabText,
-                activeTab === 'my' && styles.activeTabText
+                activeTab === "my" && styles.activeTabText,
               ]}
             >
               Meus
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[
               styles.tabButton,
-              activeTab === 'shared' && styles.activeTabButton
+              activeTab === "shared" && styles.activeTabButton,
             ]}
-            onPress={() => setActiveTab('shared')}
+            onPress={() => setActiveTab("shared")}
           >
-            <Text 
+            <Text
               style={[
                 styles.tabText,
-                activeTab === 'shared' && styles.activeTabText
+                activeTab === "shared" && styles.activeTabText,
               ]}
             >
               Compartilhados
@@ -317,13 +344,13 @@ const DocumentListScreen = ({ navigation }) => {
         <FlatList
           data={filteredDocuments}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id || item._id || String(Math.random())}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={loadDocuments}
-              colors={['#2196f3']}
+              colors={["#2196f3"]}
               tintColor="#2196f3"
             />
           }
@@ -334,103 +361,5 @@ const DocumentListScreen = ({ navigation }) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f0f9ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  tabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-  },
-  activeTabButton: {
-    backgroundColor: '#e3f2fd',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  activeTabText: {
-    fontWeight: 'bold',
-    color: '#2196f3',
-  },
-  list: {
-    flexGrow: 1,
-    paddingBottom: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  createButton: {
-    paddingHorizontal: 24,
-  },
-});
 
 export default DocumentListScreen;

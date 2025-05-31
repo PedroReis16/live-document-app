@@ -1,66 +1,74 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Alert, ActivityIndicator, Text, TouchableOpacity, Clipboard } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { Feather } from '@expo/vector-icons';
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Alert,
+  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  Clipboard,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { useSelector, useDispatch } from "react-redux";
+import { Feather } from "@expo/vector-icons";
+import { styles } from "./styles/DocumeEditScreen.style";
 
-// Redux actions
-import { 
-  fetchDocumentById, 
-  updateDocument, 
-  joinCollaboration, 
-  leaveCollaboration
-} from '../../store/documentSlice';
-import { fetchCollaborators } from '../../store/shareSlice';
+import {
+  fetchDocumentById,
+  updateDocument,
+  joinCollaboration,
+  leaveCollaboration,
+  createDocument,
+} from "../../store/documentSlice";
+import { fetchCollaborators } from "../../store/shareSlice";
 
-// Componentes
-import DocumentEditor from '../../components/document/DocumentEditor';
-import CollaboratorsList from '../../components/document/CollaboratorsList';
-import Button from '../../components/common/Button';
+import DocumentEditor from "../../components/document/DocumentEditor";
+import CollaboratorsList from "../../components/document/CollaboratorsList";
+import Button from "../../components/common/Button";
 
-// Serviços
-import SocketService from '../../services/socket';
-import ShareService from '../../services/share';
+import ShareService from "../../services/share";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Chave para salvar documentos no storage local
+const LOCAL_DOCUMENT_KEY_PREFIX = "local_document_";
 
 const DocumentEditScreen = ({ route, navigation }) => {
-  const { documentId, isSharedDocument } = route.params || {};
+  const { documentId, isNewDocument, isSharedDocument, documentData } =
+    route.params || {};
   const dispatch = useDispatch();
-  
-  // States do componente
+
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [collaborationMode, setCollaborationMode] = useState(false);
   const [shareCode, setShareCode] = useState(null);
   const [shareError, setShareError] = useState(null);
   const [generatingCode, setGeneratingCode] = useState(false);
-  
-  // States do Redux
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [creatingServerDoc, setCreatingServerDoc] = useState(false);
+
+  const optionsMenuRef = useRef(null);
+
   const { currentDocument, loading, error, collaborationActive } = useSelector(
-    state => state.documents
+    (state) => state.documents
   );
-  const { user } = useSelector(state => state.auth);
-  const { collaborators } = useSelector(state => state.share);
-  
-  // Carregar documento
+  const { user } = useSelector((state) => state.auth);
+  const { collaborators } = useSelector((state) => state.share);
+
   useEffect(() => {
     if (documentId) {
-      // Verificar se é um documento local passado via params
-      if (route.params?.isNewDocument && route.params?.documentData) {
-        // Usar diretamente os dados do documento local
+      if (isNewDocument && documentData) {
         dispatch({
-          type: 'documents/setCurrentDocument',
-          payload: route.params.documentData
+          type: "documents/setCurrentDocument",
+          payload: route.params.documentData,
         });
       } else {
-        // Buscar do servidor
         dispatch(fetchDocumentById(documentId));
       }
     }
   }, [documentId, dispatch, route.params]);
-  
-  // Definir título da tela
+
   useEffect(() => {
     if (currentDocument) {
       navigation.setOptions({
-        title: currentDocument.title || 'Editor de documento',
+        title: currentDocument.title || "Editor de documento",
         headerRight: () => (
           <View style={styles.headerButtons}>
             {isSharedDocument && (
@@ -71,48 +79,42 @@ const DocumentEditScreen = ({ route, navigation }) => {
                 <Feather name="users" size={24} color="#333" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleShare}
-            >
+            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
               <Feather name="share-2" size={24} color="#333" />
             </TouchableOpacity>
           </View>
-        )
+        ),
       });
     }
   }, [currentDocument, navigation, showCollaborators, isSharedDocument]);
-  
-  // Ativar modo de colaboração quando solicitado
+
   useEffect(() => {
     if (isSharedDocument && currentDocument) {
       setCollaborationMode(true);
     }
   }, [isSharedDocument, currentDocument]);
-  
-  // Entrar no modo de colaboração (conectar ao socket)
+
   useEffect(() => {
     if (collaborationMode && currentDocument && !collaborationActive) {
       dispatch(joinCollaboration(currentDocument.id));
       dispatch(fetchCollaborators(currentDocument.id));
-      
-      // Configurar listeners para eventos de colaboração
+
       ShareService.setupCollaborationListeners(currentDocument.id, {
         onUserJoined: (data) => {
-          Alert.alert('Colaboração', `${data.user.name} entrou no documento`);
+          Alert.alert("Colaboração", `${data.user.name} entrou no documento`);
         },
         onUserLeft: (data) => {
-          // Opcional: mostrar notificação quando alguém sair
+          Alert.alert("Colaboração", `${data.user.name} saiu do documento`);
         },
         onPermissionChanged: (data) => {
-          Alert.alert('Permissões', 
+          Alert.alert(
+            "Permissões",
             `Suas permissões foram alteradas para: ${data.permission}`
           );
-        }
+        },
       });
     }
-    
-    // Cleanup ao sair do documento
+
     return () => {
       if (collaborationMode && currentDocument && collaborationActive) {
         dispatch(leaveCollaboration(currentDocument.id));
@@ -120,91 +122,140 @@ const DocumentEditScreen = ({ route, navigation }) => {
       }
     };
   }, [collaborationMode, currentDocument, collaborationActive, dispatch]);
-  
-  // Gerar código de compartilhamento
+
   const handleShare = async () => {
     if (!currentDocument) return;
-    
+
     try {
       setGeneratingCode(true);
       setShareError(null);
-      
-      // Verificar se já existe um código válido em cache
+
       let code = ShareService.getShareCodeForDocument(currentDocument.id);
-      
+
       if (!code) {
-        // Gerar novo código
-        const response = await ShareService.generateShareCode(currentDocument.id);
+        const response = await ShareService.generateShareCode(
+          currentDocument.id
+        );
         code = response.shareCode;
       }
-      
+
       setShareCode(code);
-      
-      // Mostrar modal ou alert com o código
+
       Alert.alert(
-        'Compartilhar documento',
+        "Compartilhar documento",
         `Compartilhe este código com outras pessoas:\n\n${code}\n\nEste código expira em 24 horas.`,
         [
-          { text: 'Copiar código', onPress: () => copyToClipboard(code) },
-          { text: 'OK', style: 'default' }
+          { text: "Copiar código", onPress: () => copyToClipboard(code) },
+          { text: "OK", style: "default" },
         ]
       );
-      
     } catch (error) {
-      console.error('Erro ao gerar código de compartilhamento:', error);
-      setShareError('Não foi possível gerar o código de compartilhamento');
-      
+      console.error("Erro ao gerar código de compartilhamento:", error);
+      setShareError("Não foi possível gerar o código de compartilhamento");
+
       Alert.alert(
-        'Erro',
-        'Não foi possível gerar o código de compartilhamento. Tente novamente.'
+        "Erro",
+        "Não foi possível gerar o código de compartilhamento. Tente novamente."
       );
     } finally {
       setGeneratingCode(false);
     }
   };
-  
-  // Copiar código para clipboard
+
   const copyToClipboard = (text) => {
     Clipboard.setString(text);
-    Alert.alert('Copiado', 'Código copiado para a área de transferência');
+    Alert.alert("Copiado", "Código copiado para a área de transferência");
   };
-  
-  // Salvar documento
-  const handleSaveDocument = async (changes) => {
+
+  // Salvar backup local do documento (não bloqueante)
+  const saveLocalBackup = (docData) => {
+    if (!currentDocument?.id) return;
+
+    // Executar de forma não bloqueante
+    (async () => {
+      try {
+        const localData = {
+          ...docData,
+          localUpdatedAt: new Date().toISOString(),
+        };
+
+        await AsyncStorage.setItem(
+          `${LOCAL_DOCUMENT_KEY_PREFIX}${currentDocument.id}`,
+          JSON.stringify(localData)
+        );
+
+        console.log("Backup local salvo com sucesso no EditScreen");
+      } catch (error) {
+        console.error("Erro ao salvar backup local no EditScreen:", error);
+      }
+    })();
+  };
+
+  const handleSaveDocument = (changes) => {
     try {
-      await dispatch(updateDocument({ 
-        id: currentDocument.id, 
-        changes 
-      })).unwrap();
+      const isLocalDocument = currentDocument?.id?.startsWith("local_");
+
+      if (isLocalDocument) {
+        const documentData = {
+          title: changes.title || currentDocument.title,
+          content: changes.content || currentDocument.content,
+        };
+
+        // Salvar localmente de forma não bloqueante
+        saveLocalBackup(documentData);
+
+        // Evitar múltiplas tentativas de criação simultâneas
+        if (creatingServerDoc) return;
+
+        // Iniciar o processo de criação no servidor em background
+        setCreatingServerDoc(true);
+
+        // Tentar salvar no servidor de forma não bloqueante
+        (async () => {
+          try {
+            const createdDoc = await dispatch(
+              createDocument(documentData)
+            ).unwrap();
+
+            console.log("Documento criado no servidor:", createdDoc.id);
+
+            // Redirecionar para o novo documento sem interromper o usuário
+            navigation.replace("DocumentEdit", {
+              documentId: createdDoc.id,
+              isSharedDocument: false,
+            });
+          } catch (error) {
+            console.error("Erro ao salvar no servidor:", error);
+            // Documento continua salvo localmente, usuário pode continuar editando
+          } finally {
+            setCreatingServerDoc(false);
+          }
+        })();
+      } else {
+        // Para documentos normais, o próprio DocumentEditor já cuida do salvamento
+        // Não é necessário fazer nada aqui
+      }
     } catch (error) {
-      console.error('Erro ao salvar documento:', error);
-      Alert.alert(
-        'Erro',
-        'Não foi possível salvar as alterações. Tente novamente.'
-      );
+      console.error("Erro ao salvar documento:", error);
     }
   };
-  
-  // Verificar permissões do usuário no documento compartilhado
+
   const getUserPermission = () => {
     if (!currentDocument || !user) return null;
-    
-    // Se o usuário é o dono do documento
+
     if (currentDocument.owner === user.id) {
-      return 'owner';
+      return "owner";
     }
-    
-    // Procurar permissões nos colaboradores
-    const collaborator = collaborators.find(c => c.id === user.id);
-    return collaborator?.permission || 'read';
+
+    const collaborator = collaborators.find((c) => c.id === user.id);
+    return collaborator?.permission || "read";
   };
-  
-  // Determinar se o usuário tem permissão de escrita
+
   const canEdit = () => {
     const permission = getUserPermission();
-    return permission === 'owner' || permission === 'write';
+    return permission === "owner" || permission === "write";
   };
-  
+
   if (loading) {
     return (
       <View style={styles.centeredContainer}>
@@ -213,7 +264,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
       </View>
     );
   }
-  
+
   if (error) {
     return (
       <View style={styles.centeredContainer}>
@@ -221,108 +272,60 @@ const DocumentEditScreen = ({ route, navigation }) => {
         <Text style={styles.errorText}>
           Erro ao carregar documento: {error}
         </Text>
-        <Button 
-          title="Voltar" 
+        <Button
+          title="Voltar"
           onPress={() => navigation.goBack()}
           style={styles.button}
         />
       </View>
     );
   }
-  
+
   if (!currentDocument) {
     return (
       <View style={styles.centeredContainer}>
         <Feather name="file-minus" size={48} color="#666" />
-        <Text style={styles.errorText}>
-          Documento não encontrado
-        </Text>
-        <Button 
-          title="Voltar" 
+        <Text style={styles.errorText}>Documento não encontrado</Text>
+        <Button
+          title="Voltar"
           onPress={() => navigation.goBack()}
           style={styles.button}
         />
       </View>
     );
   }
-  
+
   return (
-    <View style={styles.container}>
-      {showCollaborators ? (
-        <View style={styles.collaboratorsContainer}>
-          <View style={styles.collaboratorsHeader}>
-            <Text style={styles.collaboratorsTitle}>Colaboradores</Text>
-            <TouchableOpacity onPress={() => setShowCollaborators(false)}>
-              <Feather name="x" size={24} color="#333" />
-            </TouchableOpacity>
+    <TouchableWithoutFeedback onPress={() => setShowOptionsMenu(false)}>
+      <View style={styles.container}>
+        {showCollaborators ? (
+          <View style={styles.collaboratorsContainer}>
+            <View style={styles.collaboratorsHeader}>
+              <Text style={styles.collaboratorsTitle}>Colaboradores</Text>
+              <TouchableOpacity onPress={() => setShowCollaborators(false)}>
+                <Feather name="x" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <CollaboratorsList
+              key={currentDocument.id}
+              documentId={currentDocument.id}
+              isOwner={currentDocument.owner === user?.id}
+            />
           </View>
-          
-          <CollaboratorsList
-            documentId={currentDocument.id}
-            isOwner={currentDocument.owner === user?.id}
-          />
-        </View>
-      ) : (
-        <DocumentEditor
-          document={currentDocument}
-          readOnly={isSharedDocument && !canEdit()}
-          collaborationMode={collaborationMode}
-          onSave={handleSaveDocument}
-        />
-      )}
-    </View>
+        ) : (
+          <React.Fragment>
+            <DocumentEditor
+              document={currentDocument}
+              readOnly={isSharedDocument && !canEdit()}
+              collaborationMode={collaborationMode}
+              onSave={handleSaveDocument}
+            />
+          </React.Fragment>
+        )}
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff'
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666'
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#ff0000',
-    textAlign: 'center',
-    marginBottom: 20
-  },
-  button: {
-    minWidth: 150
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    marginRight: 10
-  },
-  headerButton: {
-    marginHorizontal: 8
-  },
-  collaboratorsContainer: {
-    flex: 1,
-    backgroundColor: '#fff'
-  },
-  collaboratorsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  collaboratorsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold'
-  }
-});
 
 export default DocumentEditScreen;
