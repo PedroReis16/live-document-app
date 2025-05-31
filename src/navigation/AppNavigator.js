@@ -43,15 +43,6 @@ const AppNavigator = () => {
     }
   }, [reduxToken]);
 
-  // Garantir que o socket seja conectado quando o usuário já está autenticado
-  useEffect(() => {
-    if (isAuthenticated && token && !initializing) {
-      if (!SocketService.isSocketConnected()) {
-        console.log("Conectando ao socket após inicialização do app");
-        SocketService.connect(token);
-      }
-    }
-  }, [isAuthenticated, token, initializing]);
 
   // Mostrar loading enquanto verifica autenticação
   if (initializing || (loading && !isInitialized)) {
