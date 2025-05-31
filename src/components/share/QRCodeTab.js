@@ -55,8 +55,6 @@ const QRCodeTab = ({
         <QRCode
           value={shareLinkUrl}
           size={200}
-          backgroundColor="white"
-          color="#000"
         />
       </View>
 

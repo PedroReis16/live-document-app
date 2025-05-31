@@ -5,6 +5,7 @@ import { store, persistor } from "./src/store";
 import AppNavigator from "./src/navigation/AppNavigator";
 import Loading from "./src/components/common/Loading";
 import * as Linking from 'expo-linking';
+import 'fast-text-encoding';
 
 const App = () => {
   useEffect(() => {

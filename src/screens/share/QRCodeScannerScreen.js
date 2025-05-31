@@ -1,20 +1,21 @@
 // filepath: d:\Documentos\Code\Projetos\document-app\src\screens\share\QRCodeScannerScreen.js
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Alert,
   SafeAreaView,
-  StatusBar
-} from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
-import { useDispatch } from 'react-redux';
-import { Feather } from '@expo/vector-icons';
+  StatusBar,
+} from "react-native";
+import { BarCodeScanner } from "expo-barcode-scanner";
+import { useDispatch } from "react-redux";
+import { Feather } from "@expo/vector-icons";
+import { styles } from "./styles/QRCodeScannerScreen.style";
 
 // Redux actions
-import { processDeepLinkToken } from '../../store/shareSlice';
+import { processDeepLinkToken } from "../../store/shareSlice";
 
 const QRCodeScannerScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -26,7 +27,7 @@ const QRCodeScannerScreen = ({ navigation }) => {
   useEffect(() => {
     (async () => {
       const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
+      setHasPermission(status === "granted");
     })();
   }, []);
 
@@ -34,51 +35,51 @@ const QRCodeScannerScreen = ({ navigation }) => {
   const handleBarCodeScanned = async ({ type, data }) => {
     if (scanned) return;
     setScanned(true);
-    
+
     try {
       // Verificar se o URL é do nosso aplicativo
-      if (data.includes('document/share')) {
+      if (data.includes("document/share")) {
         // Extrair o token do link
-        const token = data.split('/').pop();
-        
+        const token = data.split("/").pop();
+
         if (token) {
           // Processar o token
           await dispatch(processDeepLinkToken(token)).unwrap();
           navigation.goBack(); // Voltar após processar com sucesso
         } else {
-          Alert.alert('Erro', 'QR Code inválido ou expirado.');
+          Alert.alert("Erro", "QR Code inválido ou expirado.");
         }
       } else {
         Alert.alert(
-          'Link externo',
-          'Este QR Code não parece ser do Document App. Deseja abrir este link?',
+          "Link externo",
+          "Este QR Code não parece ser do Document App. Deseja abrir este link?",
           [
             {
-              text: 'Cancelar',
-              style: 'cancel',
-              onPress: () => setScanned(false)
+              text: "Cancelar",
+              style: "cancel",
+              onPress: () => setScanned(false),
             },
             {
-              text: 'Abrir',
+              text: "Abrir",
               onPress: async () => {
                 try {
                   await Linking.openURL(data);
                   navigation.goBack();
                 } catch (error) {
-                  Alert.alert('Erro', 'Não foi possível abrir este link.');
+                  Alert.alert("Erro", "Não foi possível abrir este link.");
                   setScanned(false);
                 }
-              }
-            }
+              },
+            },
           ]
         );
       }
     } catch (error) {
-      console.error('Erro ao processar QR Code:', error);
+      console.error("Erro ao processar QR Code:", error);
       Alert.alert(
-        'Erro',
-        'Não foi possível processar este QR Code. Tente novamente.',
-        [{ text: 'OK', onPress: () => setScanned(false) }]
+        "Erro",
+        "Não foi possível processar este QR Code. Tente novamente.",
+        [{ text: "OK", onPress: () => setScanned(false) }]
       );
     }
   };
@@ -119,14 +120,18 @@ const QRCodeScannerScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
+
       <BarCodeScanner
         onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
         style={StyleSheet.absoluteFillObject}
         barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
-        flashMode={flashOn ? BarCodeScanner.Constants.FlashMode.torch : BarCodeScanner.Constants.FlashMode.off}
+        flashMode={
+          flashOn
+            ? BarCodeScanner.Constants.FlashMode.torch
+            : BarCodeScanner.Constants.FlashMode.off
+        }
       />
-      
+
       <View style={styles.overlay}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -135,29 +140,31 @@ const QRCodeScannerScreen = ({ navigation }) => {
           >
             <Feather name="x" size={24} color="#fff" />
           </TouchableOpacity>
-          
+
           <Text style={styles.title}>Escanear QR Code</Text>
-          
+
           <TouchableOpacity
             style={styles.flashButton}
             onPress={() => setFlashOn(!flashOn)}
           >
-            <Feather name={flashOn ? "zap-off" : "zap"} size={24} color="#fff" />
+            <Feather
+              name={flashOn ? "zap-off" : "zap"}
+              size={24}
+              color="#fff"
+            />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.scanWindow}>
           <View style={styles.scanCornerTopLeft} />
           <View style={styles.scanCornerTopRight} />
           <View style={styles.scanCornerBottomLeft} />
           <View style={styles.scanCornerBottomRight} />
         </View>
-        
+
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Aponte a câmera para um QR code
-          </Text>
-          
+          <Text style={styles.footerText}>Aponte a câmera para um QR code</Text>
+
           {scanned && (
             <TouchableOpacity
               style={styles.scanAgainButton}
@@ -172,140 +179,140 @@ const QRCodeScannerScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  statusText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  helpText: {
-    fontSize: 16,
-    color: '#ccc',
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  button: {
-    marginTop: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    backgroundColor: '#2196f3',
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  flashButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanWindow: {
-    width: 250,
-    height: 250,
-    alignSelf: 'center',
-    position: 'relative',
-  },
-  scanCornerTopLeft: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 40,
-    height: 40,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderColor: '#2196f3',
-  },
-  scanCornerTopRight: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 40,
-    height: 40,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderColor: '#2196f3',
-  },
-  scanCornerBottomLeft: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: 40,
-    height: 40,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderColor: '#2196f3',
-  },
-  scanCornerBottomRight: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 40,
-    height: 40,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderColor: '#2196f3',
-  },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  scanAgainButton: {
-    backgroundColor: '#2196f3',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  scanAgainText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-});
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     backgroundColor: '#000',
+//   },
+//   loadingContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   permissionContainer: {
+//     flex: 1,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     padding: 20,
+//   },
+//   statusText: {
+//     fontSize: 18,
+//     fontWeight: 'bold',
+//     color: '#fff',
+//     marginTop: 20,
+//     textAlign: 'center',
+//   },
+//   helpText: {
+//     fontSize: 16,
+//     color: '#ccc',
+//     marginTop: 10,
+//     textAlign: 'center',
+//   },
+//   button: {
+//     marginTop: 30,
+//     paddingVertical: 12,
+//     paddingHorizontal: 30,
+//     backgroundColor: '#2196f3',
+//     borderRadius: 8,
+//   },
+//   buttonText: {
+//     color: '#fff',
+//     fontSize: 16,
+//     fontWeight: '600',
+//   },
+//   overlay: {
+//     flex: 1,
+//     justifyContent: 'space-between',
+//   },
+//   header: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'space-between',
+//     padding: 16,
+//   },
+//   closeButton: {
+//     width: 44,
+//     height: 44,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   title: {
+//     color: '#fff',
+//     fontSize: 18,
+//     fontWeight: 'bold',
+//   },
+//   flashButton: {
+//     width: 44,
+//     height: 44,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   scanWindow: {
+//     width: 250,
+//     height: 250,
+//     alignSelf: 'center',
+//     position: 'relative',
+//   },
+//   scanCornerTopLeft: {
+//     position: 'absolute',
+//     top: 0,
+//     left: 0,
+//     width: 40,
+//     height: 40,
+//     borderTopWidth: 4,
+//     borderLeftWidth: 4,
+//     borderColor: '#2196f3',
+//   },
+//   scanCornerTopRight: {
+//     position: 'absolute',
+//     top: 0,
+//     right: 0,
+//     width: 40,
+//     height: 40,
+//     borderTopWidth: 4,
+//     borderRightWidth: 4,
+//     borderColor: '#2196f3',
+//   },
+//   scanCornerBottomLeft: {
+//     position: 'absolute',
+//     bottom: 0,
+//     left: 0,
+//     width: 40,
+//     height: 40,
+//     borderBottomWidth: 4,
+//     borderLeftWidth: 4,
+//     borderColor: '#2196f3',
+//   },
+//   scanCornerBottomRight: {
+//     position: 'absolute',
+//     bottom: 0,
+//     right: 0,
+//     width: 40,
+//     height: 40,
+//     borderBottomWidth: 4,
+//     borderRightWidth: 4,
+//     borderColor: '#2196f3',
+//   },
+//   footer: {
+//     padding: 20,
+//     alignItems: 'center',
+//   },
+//   footerText: {
+//     color: '#fff',
+//     fontSize: 16,
+//     textAlign: 'center',
+//     marginBottom: 20,
+//   },
+//   scanAgainButton: {
+//     backgroundColor: '#2196f3',
+//     paddingVertical: 12,
+//     paddingHorizontal: 24,
+//     borderRadius: 8,
+//   },
+//   scanAgainText: {
+//     color: '#fff',
+//     fontWeight: '600',
+//   },
+// });
 
 export default QRCodeScannerScreen;
