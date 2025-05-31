@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
+import { styles } from "./styles/DocumentListScreen.style";
 
 // Components
 import DocumentItem from "../../components/document/DocumentItem";
@@ -128,7 +128,6 @@ const DocumentListScreen = ({ navigation }) => {
           isNewDocument: true,
           documentData: createdDoc.data,
         });
-
       } catch (error) {
         console.error("Erro ao criar documento:", error);
 
@@ -363,103 +362,5 @@ const DocumentListScreen = ({ navigation }) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#f0f9ff",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-  },
-  tabContainer: {
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  tabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-  },
-  activeTabButton: {
-    backgroundColor: "#e3f2fd",
-  },
-  tabText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  activeTabText: {
-    fontWeight: "bold",
-    color: "#2196f3",
-  },
-  list: {
-    flexGrow: 1,
-    paddingBottom: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  createButton: {
-    paddingHorizontal: 24,
-  },
-});
 
 export default DocumentListScreen;
