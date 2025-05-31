@@ -99,6 +99,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
           Alert.alert("Colaboração", `${data.user.name} entrou no documento`);
         },
         onUserLeft: (data) => {
+          Alert.alert("Colaboração", `${data.user.name} saiu do documento`);
         },
         onPermissionChanged: (data) => {
           Alert.alert(
