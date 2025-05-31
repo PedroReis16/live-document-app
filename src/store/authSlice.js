@@ -19,7 +19,7 @@ export const login = createAsyncThunk(
       await StorageService.setTokens(accessToken, refreshToken);
       
       // Conectar ao socket
-      SocketService.connect(token);
+      SocketService.connect(accessToken);
       
       return response;
     } catch (error) {
@@ -203,7 +203,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.token = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
       })
       .addCase(login.rejected, (state, action) => {
