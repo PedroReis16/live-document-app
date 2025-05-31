@@ -7,8 +7,9 @@ export const fetchDocuments = createAsyncThunk(
   "documents/fetchAll",
   async (_, { rejectWithValue }) => {
     try {
-      const documents = await DocumentService.getDocuments();
-      return documents;
+      const response = await DocumentService.getDocuments();
+      // Retornar response.data para lidar com o formato correto da resposta
+      return response.data || response;
     } catch (error) {
       return rejectWithValue(error.message || "Erro ao carregar documentos");
     }

@@ -28,7 +28,8 @@ import Button from "../../components/common/Button";
 import ShareService from "../../services/share";
 
 const DocumentEditScreen = ({ route, navigation }) => {
-  const { documentId, isSharedDocument } = route.params || {};
+  const { documentId, isNewDocument, isSharedDocument, documentData } =
+    route.params || {};
   const dispatch = useDispatch();
 
   const [showCollaborators, setShowCollaborators] = useState(false);
@@ -48,7 +49,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     if (documentId) {
-      if (route.params?.isNewDocument && route.params?.documentData) {
+      if (isNewDocument && documentData) {
         dispatch({
           type: "documents/setCurrentDocument",
           payload: route.params.documentData,
@@ -178,13 +179,13 @@ const DocumentEditScreen = ({ route, navigation }) => {
         Alert.alert("Sucesso", "Documento salvo com sucesso no servidor!");
 
         navigation.replace("DocumentEdit", {
-          documentId: createdDoc.id,
+          documentId: documentId,
           isSharedDocument: false,
         });
       } else {
         await dispatch(
           updateDocument({
-            id: currentDocument.id,
+            id: documentId,
             changes,
           })
         ).unwrap();

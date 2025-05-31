@@ -30,6 +30,7 @@ import {
 import DocumentService from "../../services/documents";
 import { baseApiService } from "../../services/BaseApiService";
 import StorageService from "../../services/storage";
+import { create } from "lodash";
 
 const DocumentListScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -118,10 +119,16 @@ const DocumentListScreen = ({ navigation }) => {
       // Tentar criar no servidor usando dispatch do Redux
       try {
         const createdDoc = await dispatch(createDocument(newDocument)).unwrap();
+
+        console.log(createdDoc);
+
         navigation.navigate("DocumentEdit", {
-          documentId: createdDoc.id,
+          documentId: createdDoc.data._id,
           isSharedDocument: false,
+          isNewDocument: true,
+          documentData: createdDoc.data,
         });
+
       } catch (error) {
         console.error("Erro ao criar documento:", error);
 
