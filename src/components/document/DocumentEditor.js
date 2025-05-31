@@ -6,7 +6,8 @@ import {
   KeyboardAvoidingView, 
   Platform,
   Alert,
-  Text
+  Text,
+  Animated,
 } from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
 import { useSelector, useDispatch } from 'react-redux';
@@ -19,9 +20,13 @@ import * as Sharing from 'expo-sharing';
 import { debounce } from 'lodash';
 import { Feather } from '@expo/vector-icons';
 import { styles } from './styles/DocumentEditor.style';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Componentes personalizados
 import Button from '../common/Button';
+
+// Chave para salvar documentos no storage local
+const LOCAL_DOCUMENT_KEY_PREFIX = 'local_document_';
 
 const DocumentEditor = ({ 
   document, 
@@ -31,10 +36,15 @@ const DocumentEditor = ({
 }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [saving, setSaving] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [collaborators, setCollaborators] = useState([]);
   const [isTyping, setIsTyping] = useState({});
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'saved', 'error'
+  
+  // Animações para o indicador de status
+  const saveIconOpacity = useRef(new Animated.Value(0)).current;
+  const saveIconScale = useRef(new Animated.Value(0.8)).current;
+  const saveIconColor = useRef(new Animated.Value(0)).current;
   
   const auth = useSelector(state => state.auth);
   const collaborationActive = useSelector(state => state.documents.collaborationActive);
@@ -44,6 +54,17 @@ const DocumentEditor = ({
   const contentInputRef = useRef(null);
   const lastSyncedContent = useRef('');
   const lastSyncedTitle = useRef('');
+  const saveStatusTimeout = useRef(null);
+  const lastSaveTime = useRef(null);
+  const savePromise = useRef(null);
+  const pendingChanges = useRef(null);
+  const isSaving = useRef(false);
+  
+  // Valor interpolado para cor do ícone
+  const iconColor = saveIconColor.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['#FFB74D', '#4CAF50', '#F44336'] // laranja (salvando) -> verde (salvo) -> vermelho (erro)
+  });
   
   // Monitorar conectividade
   useEffect(() => {
@@ -61,8 +82,86 @@ const DocumentEditor = ({
       setContent(document.content || '');
       lastSyncedContent.current = document.content || '';
       lastSyncedTitle.current = document.title || '';
+      
+      // Verificar se há uma versão local mais recente do documento
+      loadLocalBackup(document.id);
     }
   }, [document?.id]);
+
+  // Gerenciar animação sutil do ícone de salvamento
+  useEffect(() => {
+    // Cancelar timeout anterior se houver
+    if (saveStatusTimeout.current) {
+      clearTimeout(saveStatusTimeout.current);
+    }
+    
+    if (saveStatus === 'idle') {
+      // Se não estiver salvando, não mostrar nada
+      return;
+    }
+    
+    // Configurar valor de cor baseado no status
+    let colorValue;
+    switch (saveStatus) {
+      case 'saving':
+        colorValue = 0; // laranja
+        break;
+      case 'saved':
+        colorValue = 0.5; // verde
+        break;
+      case 'error':
+        colorValue = 1; // vermelho
+        break;
+    }
+    
+    // Animar a aparição do ícone
+    Animated.parallel([
+      Animated.timing(saveIconOpacity, {
+        toValue: 0.9,
+        duration: 200,
+        useNativeDriver: true
+      }),
+      Animated.timing(saveIconScale, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true
+      }),
+      Animated.timing(saveIconColor, {
+        toValue: colorValue,
+        duration: 200,
+        useNativeDriver: false
+      })
+    ]).start();
+    
+    // Ocultar após um determinado tempo, exceto se estiver salvando
+    if (saveStatus === 'saved' || saveStatus === 'error') {
+      const hideDelay = saveStatus === 'error' ? 2000 : 1000;
+      
+      saveStatusTimeout.current = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(saveIconOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true
+          }),
+          Animated.timing(saveIconScale, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true
+          })
+        ]).start(() => {
+          // Só redefine para 'idle' após a animação terminar
+          setSaveStatus('idle');
+        });
+      }, hideDelay);
+    }
+    
+    return () => {
+      if (saveStatusTimeout.current) {
+        clearTimeout(saveStatusTimeout.current);
+      }
+    };
+  }, [saveStatus]);
   
   // Configurar listeners do socket para colaboração
   useEffect(() => {
@@ -144,16 +243,104 @@ const DocumentEditor = ({
     };
   }, [collaborationMode, collaborationActive, document, auth.user?.id]);
   
-  // Debounce para salvar alterações sem sobrecarregar a API
-  const debouncedSave = useRef(
-    debounce(async (docId, changes) => {
-      if (!docId) return;
-      
+  // Salvar backup local do documento (não bloqueante)
+  const saveLocalBackup = (docId, docData) => {
+    if (!docId) return;
+    
+    // Não bloqueie - apenas execute em segundo plano
+    (async () => {
       try {
-        setSaving(true);
+        const localData = {
+          ...docData,
+          localUpdatedAt: new Date().toISOString()
+        };
+        
+        await AsyncStorage.setItem(
+          `${LOCAL_DOCUMENT_KEY_PREFIX}${docId}`, 
+          JSON.stringify(localData)
+        );
+        
+        console.log('Backup local salvo com sucesso');
+      } catch (error) {
+        console.error('Erro ao salvar backup local:', error);
+      }
+    })();
+  };
+  
+  // Carregar backup local do documento
+  const loadLocalBackup = async (docId) => {
+    if (!docId) return;
+    
+    try {
+      const localDataJson = await AsyncStorage.getItem(`${LOCAL_DOCUMENT_KEY_PREFIX}${docId}`);
+      
+      if (localDataJson) {
+        const localData = JSON.parse(localDataJson);
+        
+        // Verificar se a versão local é mais recente que a do servidor
+        const serverUpdatedAt = new Date(document.updatedAt || 0).getTime();
+        const localUpdatedAt = new Date(localData.localUpdatedAt || 0).getTime();
+        
+        if (localUpdatedAt > serverUpdatedAt) {
+          // A versão local é mais recente, perguntar ao usuário
+          Alert.alert(
+            'Versão local disponível',
+            'Encontramos uma versão local mais recente deste documento. Deseja carregar essa versão?',
+            [
+              {
+                text: 'Não, usar versão do servidor',
+                style: 'cancel'
+              },
+              {
+                text: 'Sim, usar versão local',
+                onPress: () => {
+                  if (localData.title) {
+                    setTitle(localData.title);
+                  }
+                  if (localData.content) {
+                    setContent(localData.content);
+                  }
+                }
+              }
+            ]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar backup local:', error);
+    }
+  };
+  
+  // Função para processar o salvamento em background sem interromper a UI
+  const processActualSave = async () => {
+    // Se já estiver salvando, apenas armazene as mudanças pendentes
+    if (isSaving.current) {
+      return;
+    }
+    
+    // Se não houver mudanças pendentes, não faça nada
+    if (!pendingChanges.current) {
+      return;
+    }
+    
+    const docId = document?.id;
+    if (!docId) return;
+    
+    const changes = { ...pendingChanges.current };
+    pendingChanges.current = null; // Limpar as mudanças pendentes
+    
+    isSaving.current = true;
+    setSaveStatus('saving');
+    
+    try {
+      // Salvar localmente primeiro (não bloqueante)
+      saveLocalBackup(docId, changes);
+      
+      if (isOnline) {
+        // Salvamento na API de forma não bloqueante
         await dispatch(updateDocument({ id: docId, changes })).unwrap();
         
-        // Atualizar referências de último conteúdo sincronizado
+        // Atualizar referências somente após conclusão do salvamento
         if (changes.title !== undefined) {
           lastSyncedTitle.current = changes.title;
         }
@@ -162,18 +349,35 @@ const DocumentEditor = ({
           lastSyncedContent.current = changes.content;
         }
         
-        if (onSave) {
-          onSave(changes);
-        }
-      } catch (error) {
-        console.error('Erro ao salvar documento:', error);
-        Alert.alert(
-          'Erro ao salvar',
-          'Não foi possível salvar as alterações. Tente novamente.'
-        );
-      } finally {
-        setSaving(false);
+        setSaveStatus('saved');
+      } else {
+        // Se estiver offline, apenas notificar que foi salvo localmente
+        setSaveStatus('saved');
       }
+    } catch (error) {
+      console.error('Erro ao salvar documento:', error);
+      setSaveStatus('error');
+    } finally {
+      isSaving.current = false;
+      
+      // Se novas mudanças foram feitas durante o salvamento, processar novamente
+      if (pendingChanges.current) {
+        setTimeout(processActualSave, 100); // Pequeno atraso para evitar bloqueio da UI
+      }
+    }
+  };
+  
+  // Debounce para acumular mudanças sem sobrecarregar a API
+  const debouncedSave = useRef(
+    debounce((docId, changes) => {
+      // Apenas registre as mudanças pendentes
+      pendingChanges.current = {
+        ...pendingChanges.current,
+        ...changes
+      };
+      
+      // Inicie o processamento em background
+      setTimeout(processActualSave, 0);
     }, 1000)
   ).current;
   
@@ -188,7 +392,7 @@ const DocumentEditor = ({
     SocketService.emitUserTyping(document.id);
   };
   
-  // Handler de mudança de título
+  // Handler de mudança de título (totalmente não bloqueante)
   const handleTitleChange = (newTitle) => {
     setTitle(newTitle);
     
@@ -205,11 +409,11 @@ const DocumentEditor = ({
     
     // Salvar com debounce
     if (!readOnly && document?.id) {
-      debouncedSave(document.id, { title: newTitle });
+      debouncedSave(document.id, { title: newTitle, content });
     }
   };
   
-  // Handler de mudança de conteúdo
+  // Handler de mudança de conteúdo (totalmente não bloqueante)
   const handleContentChange = (newContent) => {
     setContent(newContent);
     
@@ -226,92 +430,65 @@ const DocumentEditor = ({
     
     // Salvar com debounce
     if (!readOnly && document?.id) {
-      debouncedSave(document.id, { content: newContent });
+      debouncedSave(document.id, { title, content: newContent });
     }
   };
   
   // Salvar documento manualmente (forçar salvamento imediato)
-  const handleSave = async () => {
+  const handleSave = () => {
     if (readOnly || !document?.id) return;
     
-    const changes = {};
+    const changes = {
+      title,
+      content
+    };
     
-    // Verificar se título ou conteúdo foram alterados
-    if (title !== lastSyncedTitle.current) {
-      changes.title = title;
-    }
+    // Usar o mesmo mecanismo não-bloqueante
+    pendingChanges.current = { ...changes };
+    processActualSave();
     
-    if (content !== lastSyncedContent.current) {
-      changes.content = content;
-    }
-    
-    // Se não há alterações, salva o conteúdo atual de qualquer forma
-    if (Object.keys(changes).length === 0) {
-      changes.title = title;
-      changes.content = content;
-    }
-    
-    try {
-      setSaving(true);
-      
-      // Checar se é um documento local (ID começando com "local_")
-      const isLocalDocument = document.id.startsWith('local_');
-      
-      if (isLocalDocument && onSave) {
-        // Para documentos locais, delegamos ao componente pai
-        onSave({
-          title,
-          content
-        });
-        return;
-      }
-      
-      // Salvar no dispositivo local primeiro
-      try {
-        // Aqui poderia ser implementada uma lógica para salvar no armazenamento local
-        // usando AsyncStorage ou outra solução de persistência local
-        console.log('Salvando localmente...');
-      } catch (localError) {
-        console.warn('Erro ao salvar localmente:', localError);
-        // Continua tentando salvar na API mesmo se falhar localmente
-      }
-      
-      // Para documentos normais, usar o dispatch do Redux para salvar na API
-      const result = await dispatch(updateDocument({ 
-        id: document.id, 
-        changes 
-      })).unwrap();
-      
-      // Atualizar referências
-      lastSyncedTitle.current = title;
-      lastSyncedContent.current = content;
-      
-      // Chamar callback do componente pai se existir
-      if (onSave) {
+    // Se for um documento local, delegamos ao componente pai usando o mesmo processo não-bloqueante
+    if (document.id.startsWith('local_') && onSave) {
+      setTimeout(() => {
         onSave(changes);
-      }
-      
-      // Feedback visual para o usuário
-      Alert.alert('Sucesso', 'Documento salvo com sucesso!');
-    } catch (error) {
-      console.error('Erro ao salvar documento:', error);
-      Alert.alert(
-        'Erro ao salvar',
-        'Não foi possível salvar as alterações na API. O documento foi salvo apenas localmente.'
-      );
-    } finally {
-      setSaving(false);
+      }, 0);
     }
   };
   
-  // Exportar documento para arquivo de texto
-  const exportDocument = async () => {
+  // Renderizar o indicador sutil de status
+  const renderSaveStatusIcon = () => {
+    if (saveStatus === 'idle') return null;
     
-  };
-  
-  // Importar documento de arquivo de texto
-  const importDocument = async () => {
+    let iconName;
     
+    switch (saveStatus) {
+      case 'saving':
+        iconName = 'save';
+        break;
+      case 'saved':
+        iconName = 'check';
+        break;
+      case 'error':
+        iconName = 'alert-circle';
+        break;
+      default:
+        return null;
+    }
+    
+    return (
+      <Animated.View 
+        style={[
+          styles.saveStatusIconContainer, 
+          { 
+            opacity: saveIconOpacity,
+            transform: [{ scale: saveIconScale }]
+          }
+        ]}
+      >
+        <Animated.View style={{ backgroundColor: iconColor, ...styles.saveStatusIconBg }} />
+        <Feather name={iconName} size={16} color="#fff" />
+      </Animated.View>
+    );
   };
   
   return (
@@ -319,31 +496,16 @@ const DocumentEditor = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.header}>
-        {!isOnline && (
-          <View style={styles.offlineIndicator}>
-            <Feather name="wifi-off" size={16} color="#fff" />
-            <Text style={styles.offlineText}>Offline (Salvando localmente)</Text>
-          </View>
-        )}
-        
-        {saving && (
-          <View style={styles.savingIndicator}>
-            <Feather name="refresh-cw" size={16} color="#fff" />
-            <Text style={styles.savingText}>Salvando...</Text>
-          </View>
-        )}
-        
-        {collaborationMode && collaborationActive && (
-          <View style={styles.collaborationIndicator}>
-            <Feather name="users" size={16} color="#fff" />
-            <Text style={styles.collaborationText}>
-              {`${collaborators.filter(c => c.status === 'online').length} online`}
-            </Text>
-          </View>
-        )}
-      </View>
+      {/* Status do documento e indicador de salvamento */}
+      {renderSaveStatusIcon()}
       
+      {!isOnline && (
+        <View style={styles.offlineIndicatorMini}>
+          <Feather name="wifi-off" size={12} color="#fff" />
+        </View>
+      )}
+      
+      {/* Conteúdo do documento */}
       <TextInput
         ref={titleInputRef}
         style={styles.titleInput}
@@ -366,10 +528,17 @@ const DocumentEditor = ({
         editable={!readOnly}
       />
       
-      
+      {/* Indicador de colaboração */}
+      {collaborationMode && collaborationActive && collaborators.filter(c => c.status === 'online').length > 0 && (
+        <View style={styles.collaborationIndicatorMini}>
+          <Feather name="users" size={12} color="#fff" />
+          <Text style={styles.collaborationTextMini}>
+            {collaborators.filter(c => c.status === 'online').length}
+          </Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 };
-
 
 export default DocumentEditor;

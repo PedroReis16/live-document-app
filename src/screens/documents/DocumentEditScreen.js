@@ -26,6 +26,10 @@ import CollaboratorsList from "../../components/document/CollaboratorsList";
 import Button from "../../components/common/Button";
 
 import ShareService from "../../services/share";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Chave para salvar documentos no storage local
+const LOCAL_DOCUMENT_KEY_PREFIX = "local_document_";
 
 const DocumentEditScreen = ({ route, navigation }) => {
   const { documentId, isNewDocument, isSharedDocument, documentData } =
@@ -38,6 +42,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
   const [shareError, setShareError] = useState(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [creatingServerDoc, setCreatingServerDoc] = useState(false);
 
   const optionsMenuRef = useRef(null);
 
@@ -162,7 +167,31 @@ const DocumentEditScreen = ({ route, navigation }) => {
     Alert.alert("Copiado", "Código copiado para a área de transferência");
   };
 
-  const handleSaveDocument = async (changes) => {
+  // Salvar backup local do documento (não bloqueante)
+  const saveLocalBackup = (docData) => {
+    if (!currentDocument?.id) return;
+
+    // Executar de forma não bloqueante
+    (async () => {
+      try {
+        const localData = {
+          ...docData,
+          localUpdatedAt: new Date().toISOString(),
+        };
+
+        await AsyncStorage.setItem(
+          `${LOCAL_DOCUMENT_KEY_PREFIX}${currentDocument.id}`,
+          JSON.stringify(localData)
+        );
+
+        console.log("Backup local salvo com sucesso no EditScreen");
+      } catch (error) {
+        console.error("Erro ao salvar backup local no EditScreen:", error);
+      }
+    })();
+  };
+
+  const handleSaveDocument = (changes) => {
     try {
       const isLocalDocument = currentDocument?.id?.startsWith("local_");
 
@@ -172,32 +201,42 @@ const DocumentEditScreen = ({ route, navigation }) => {
           content: changes.content || currentDocument.content,
         };
 
-        const createdDoc = await dispatch(
-          createDocument(documentData)
-        ).unwrap();
+        // Salvar localmente de forma não bloqueante
+        saveLocalBackup(documentData);
 
-        Alert.alert("Sucesso", "Documento salvo com sucesso no servidor!");
+        // Evitar múltiplas tentativas de criação simultâneas
+        if (creatingServerDoc) return;
 
-        navigation.replace("DocumentEdit", {
-          documentId: documentId,
-          isSharedDocument: false,
-        });
+        // Iniciar o processo de criação no servidor em background
+        setCreatingServerDoc(true);
+
+        // Tentar salvar no servidor de forma não bloqueante
+        (async () => {
+          try {
+            const createdDoc = await dispatch(
+              createDocument(documentData)
+            ).unwrap();
+
+            console.log("Documento criado no servidor:", createdDoc.id);
+
+            // Redirecionar para o novo documento sem interromper o usuário
+            navigation.replace("DocumentEdit", {
+              documentId: createdDoc.id,
+              isSharedDocument: false,
+            });
+          } catch (error) {
+            console.error("Erro ao salvar no servidor:", error);
+            // Documento continua salvo localmente, usuário pode continuar editando
+          } finally {
+            setCreatingServerDoc(false);
+          }
+        })();
       } else {
-        await dispatch(
-          updateDocument({
-            id: documentId,
-            changes,
-          })
-        ).unwrap();
-
-        Alert.alert("Sucesso", "Alterações salvas com sucesso!");
+        // Para documentos normais, o próprio DocumentEditor já cuida do salvamento
+        // Não é necessário fazer nada aqui
       }
     } catch (error) {
       console.error("Erro ao salvar documento:", error);
-      Alert.alert(
-        "Erro",
-        "Não foi possível salvar as alterações. Tente novamente."
-      );
     }
   };
 
@@ -282,20 +321,6 @@ const DocumentEditScreen = ({ route, navigation }) => {
               collaborationMode={collaborationMode}
               onSave={handleSaveDocument}
             />
-
-            {canEdit() && (
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={() =>
-                  handleSaveDocument({
-                    title: currentDocument.title,
-                    content: currentDocument.content,
-                  })
-                }
-              >
-                <Feather name="save" size={24} color="#fff" />
-              </TouchableOpacity>
-            )}
           </React.Fragment>
         )}
       </View>

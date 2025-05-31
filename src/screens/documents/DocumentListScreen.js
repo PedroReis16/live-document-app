@@ -342,10 +342,9 @@ const DocumentListScreen = ({ navigation }) => {
 
         {/* Lista de documentos */}
         <FlatList
-          key={(item) => item.id}
           data={filteredDocuments}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id || item._id || String(Math.random())}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl

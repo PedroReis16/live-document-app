@@ -8,6 +8,9 @@ import { styles } from "./styles/DocumentItem.style";
 const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
   const navigation = useNavigation();
 
+  // Garantir que o documento tenha um ID acessível
+  const docId = document?.id || document?._id;
+
   // Formatar data para exibição
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -24,35 +27,56 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
   // Abrir documento para visualização
   const handlePress = () => {
+    if (!docId) {
+      console.error("ID do documento não encontrado:", document);
+      return;
+    }
+
     navigation.navigate("DocumentView", {
-      documentId: document.id,
+      documentId: docId,
       isSharedDocument: document.shared || false,
     });
   };
 
   // Abrir menu de compartilhamento
   const handleShare = () => {
+    if (!docId) {
+      console.error("ID do documento não encontrado:", document);
+      return;
+    }
+
     if (typeof onShare === "function") {
-      onShare(document);
+      onShare({ ...document, id: docId });
     } else {
       // Navegar diretamente para a tela de compartilhamento se não houver handler
-      navigation.navigate("Share", { documentId: document.id });
+      navigation.navigate("Share", { documentId: docId });
     }
   };
 
   // Deletar documento
   const handleDelete = () => {
+    if (!docId) {
+      console.error("ID do documento não encontrado:", document);
+      return;
+    }
+
     if (typeof onDelete === "function") {
-      onDelete(document);
+      onDelete({ ...document, id: docId });
     }
   };
 
+  // Se não houver documento ou ID válido, não renderizar nada
+  if (!document || !docId) {
+    console.warn("Documento inválido recebido por DocumentItem:", document);
+    return null;
+  }
+
   return (
     <TouchableOpacity
-      key={document.id}
+      key={docId}
       style={styles.container}
       onPress={handlePress}
-      onLongPress={() => onLongPress && onLongPress(document)}
+      onLongPress={() => onLongPress && onLongPress({ ...document, id: docId })}
       activeOpacity={0.7}
     >
       <View style={styles.iconContainer}>
@@ -107,7 +131,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
       <View style={styles.actionsContainer}>
         <TouchableOpacity
-          key={`share-${document.id}`} // Add unique key
+          key={`share-${docId}`}
           style={styles.actionButton}
           onPress={handleShare}
         >
@@ -116,7 +140,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
         {!document.shared && (
           <TouchableOpacity
-            key={`delete-${document.id}`} // Add unique key
+            key={`delete-${docId}`}
             style={styles.actionButton}
             onPress={handleDelete}
           >

@@ -6,13 +6,15 @@ import AuthNavigator from "./AuthNavigator";
 import { restoreAuthState } from "../store/authSlice";
 import Loading from "../components/common/Loading";
 import StorageService from "../services/storage";
-import SocketService from "../services/socket";
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
-  const { isAuthenticated, isInitialized, loading, token: reduxToken } = useSelector(
-    (state) => state.auth
-  );
+  const {
+    isAuthenticated,
+    isInitialized,
+    loading,
+    token: reduxToken,
+  } = useSelector((state) => state.auth);
   const [initializing, setInitializing] = useState(true);
   const [token, setToken] = useState(reduxToken);
 
@@ -42,7 +44,6 @@ const AppNavigator = () => {
       setToken(reduxToken);
     }
   }, [reduxToken]);
-
 
   // Mostrar loading enquanto verifica autenticação
   if (initializing || (loading && !isInitialized)) {

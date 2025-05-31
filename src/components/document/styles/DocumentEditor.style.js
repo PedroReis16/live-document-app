@@ -4,6 +4,7 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+    position: "relative",
   },
   header: {
     flexDirection: "row",
@@ -37,6 +38,8 @@ export const styles = StyleSheet.create({
   button: {
     minWidth: 100,
   },
+  
+  // Indicadores antigos (mantidos para compatibilidade)
   offlineIndicator: {
     flexDirection: "row",
     alignItems: "center",
@@ -78,4 +81,96 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
+  
+  // Indicador antigo de status de salvamento
+  saveStatusIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 8,
+    position: "absolute",
+    top: 8,
+    right: 16,
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  saveStatusText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+    marginLeft: 4,
+  },
+  
+  // Novos indicadores minimalistas
+  saveStatusIconContainer: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2.5,
+    elevation: 2,
+  },
+  saveStatusIconBg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 13,
+    opacity: 0.9,
+  },
+  offlineIndicatorMini: {
+    position: "absolute",
+    top: 8,
+    right: 42,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ff9800",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 998,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2.5,
+    elevation: 2,
+  },
+  collaborationIndicatorMini: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(76, 175, 80, 0.9)",
+    alignItems: "center",
+    zIndex: 997,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2.5,
+    elevation: 3,
+  },
+  collaborationTextMini: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+    marginLeft: 3,
+  }
 });
