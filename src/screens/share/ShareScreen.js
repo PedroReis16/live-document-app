@@ -111,14 +111,7 @@ const ShareScreen = ({ route, navigation }) => {
     switch (activeTab) {
       case "collaborators":
         return <CollaboratorsList documentId={documentId} />;
-      case "email":
-        return (
-          <EmailShareTab
-            documentId={documentId}
-            loading={loading}
-            handleShareWithUser={handleShareWithUser}
-          />
-        );
+     
       case "qrcode":
         return (
           <QRCodeTab
