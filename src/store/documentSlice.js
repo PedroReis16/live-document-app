@@ -1,105 +1,113 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import DocumentService from '../services/documents';
-import SocketService from '../services/socket';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import DocumentService from "../services/documents";
+import SocketService from "../services/socket";
 
 // Async thunks
 export const fetchDocuments = createAsyncThunk(
-  'documents/fetchAll',
+  "documents/fetchAll",
   async (_, { rejectWithValue }) => {
     try {
       const documents = await DocumentService.getDocuments();
       return documents;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao carregar documentos');
+      return rejectWithValue(error.message || "Erro ao carregar documentos");
     }
   }
 );
 
 export const fetchDocumentById = createAsyncThunk(
-  'documents/fetchById',
+  "documents/fetchById",
   async (id, { rejectWithValue }) => {
     try {
       const document = await DocumentService.getDocument(id);
       return document;
     } catch (error) {
-      return rejectWithValue(error.message || `Erro ao carregar documento ${id}`);
+      return rejectWithValue(
+        error.message || `Erro ao carregar documento ${id}`
+      );
     }
   }
 );
 
 export const createDocument = createAsyncThunk(
-  'documents/create',
+  "documents/create",
   async (documentData, { rejectWithValue }) => {
     try {
       const document = await DocumentService.createDocument(documentData);
       return document;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao criar documento');
+      return rejectWithValue(error.message || "Erro ao criar documento");
     }
   }
 );
 
 export const updateDocument = createAsyncThunk(
-  'documents/update',
+  "documents/update",
   async ({ id, changes }, { rejectWithValue }) => {
     try {
       const document = await DocumentService.updateDocument(id, changes);
       return document;
     } catch (error) {
-      return rejectWithValue(error.message || `Erro ao atualizar documento ${id}`);
+      return rejectWithValue(
+        error.message || `Erro ao atualizar documento ${id}`
+      );
     }
   }
 );
 
 export const deleteDocument = createAsyncThunk(
-  'documents/delete',
+  "documents/delete",
   async (id, { rejectWithValue }) => {
     try {
       await DocumentService.deleteDocument(id);
       return { id };
     } catch (error) {
-      return rejectWithValue(error.message || `Erro ao excluir documento ${id}`);
+      return rejectWithValue(
+        error.message || `Erro ao excluir documento ${id}`
+      );
     }
   }
 );
 
 export const joinCollaboration = createAsyncThunk(
-  'documents/joinCollaboration',
+  "documents/joinCollaboration",
   async (documentId, { rejectWithValue, getState, dispatch }) => {
     try {
       // Obter token do estado de autenticação
       const { auth } = getState();
       if (!auth.token) {
-        return rejectWithValue('Usuário não autenticado');
+        return rejectWithValue("Usuário não autenticado");
       }
-      
+
       // Conectar socket se não estiver conectado
       if (!SocketService.isSocketConnected()) {
         SocketService.connect(auth.token);
       }
-      
+
       // Entrar no documento
       const document = await SocketService.joinDocument(documentId);
-      
+
       // Configurar listeners para mudanças no documento
       SocketService.onDocumentChange((data) => {
         if (data.changes) {
-          dispatch(updateDocumentContent({
-            id: documentId,
-            content: data.changes
-          }));
+          dispatch(
+            updateDocumentContent({
+              id: documentId,
+              content: data.changes,
+            })
+          );
         }
       });
-      
+
       return document;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao entrar na colaboração');
+      return rejectWithValue(error.message || "Erro ao entrar na colaboração");
     }
   }
 );
 
 export const leaveCollaboration = createAsyncThunk(
-  'documents/leaveCollaboration',
+  "documents/leaveCollaboration",
   async (documentId, { rejectWithValue }) => {
     try {
       if (SocketService.isSocketConnected()) {
@@ -107,13 +115,13 @@ export const leaveCollaboration = createAsyncThunk(
       }
       return { id: documentId };
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao sair da colaboração');
+      return rejectWithValue(error.message || "Erro ao sair da colaboração");
     }
   }
 );
 
 const documentSlice = createSlice({
-  name: 'documents',
+  name: "documents",
   initialState: {
     documents: [],
     currentDocument: null,
@@ -123,7 +131,7 @@ const documentSlice = createSlice({
     collaborators: [],
     documentVersions: [],
     versionLoading: false,
-    versionError: null
+    versionError: null,
   },
   reducers: {
     setCurrentDocument: (state, action) => {
@@ -134,33 +142,39 @@ const documentSlice = createSlice({
     },
     updateDocumentContent: (state, action) => {
       const { id, content } = action.payload;
-      
+
       // Atualizar documento atual se for o mesmo
       if (state.currentDocument && state.currentDocument.id === id) {
         state.currentDocument.content = content;
       }
-      
+
       // Atualizar na lista se existir
-      const documentInList = state.documents.find(doc => doc.id === id);
-      if (documentInList) {
-        documentInList.content = content;
+      if (state.documents) {
+        const documentInList = state.documents.find((doc) => doc.id === id);
+        if (documentInList) {
+          documentInList.content = content;
+        }
       }
     },
     setCollaborators: (state, action) => {
       state.collaborators = action.payload;
     },
     addCollaborator: (state, action) => {
-      const exists = state.collaborators.some(c => c.id === action.payload.id);
+      const exists = state.collaborators.some(
+        (c) => c.id === action.payload.id
+      );
       if (!exists) {
         state.collaborators.push(action.payload);
       }
     },
     removeCollaborator: (state, action) => {
-      state.collaborators = state.collaborators.filter(c => c.id !== action.payload);
+      state.collaborators = state.collaborators.filter(
+        (c) => c.id !== action.payload
+      );
     },
     updateCollaboratorStatus: (state, action) => {
       const { userId, status } = action.payload;
-      const collaborator = state.collaborators.find(c => c.id === userId);
+      const collaborator = state.collaborators.find((c) => c.id === userId);
       if (collaborator) {
         collaborator.status = status;
       }
@@ -171,7 +185,7 @@ const documentSlice = createSlice({
     clearCollaborationState: (state) => {
       state.collaborationActive = false;
       state.collaborators = [];
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -188,7 +202,7 @@ const documentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Fetch document by ID
       .addCase(fetchDocumentById.pending, (state) => {
         state.loading = true;
@@ -202,7 +216,7 @@ const documentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Create document
       .addCase(createDocument.pending, (state) => {
         state.loading = true;
@@ -210,6 +224,11 @@ const documentSlice = createSlice({
       })
       .addCase(createDocument.fulfilled, (state, action) => {
         state.loading = false;
+
+        if (!Array.isArray(state.documents)) {
+          state.documents = [];
+        }
+
         state.documents.unshift(action.payload);
         state.currentDocument = action.payload;
       })
@@ -217,7 +236,7 @@ const documentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Update document
       .addCase(updateDocument.pending, (state) => {
         state.loading = true;
@@ -225,15 +244,22 @@ const documentSlice = createSlice({
       })
       .addCase(updateDocument.fulfilled, (state, action) => {
         state.loading = false;
-        
+
         // Atualizar na lista se existir
-        const index = state.documents.findIndex(doc => doc.id === action.payload.id);
-        if (index !== -1) {
-          state.documents[index] = action.payload;
+        if (state.documents) {
+          const index = state.documents.findIndex(
+            (doc) => doc.id === action.payload.id
+          );
+          if (index !== -1) {
+            state.documents[index] = action.payload;
+          }
         }
-        
+
         // Atualizar documento atual se for o mesmo
-        if (state.currentDocument && state.currentDocument.id === action.payload.id) {
+        if (
+          state.currentDocument &&
+          state.currentDocument.id === action.payload.id
+        ) {
           state.currentDocument = action.payload;
         }
       })
@@ -241,7 +267,7 @@ const documentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Delete document
       .addCase(deleteDocument.pending, (state) => {
         state.loading = true;
@@ -249,10 +275,17 @@ const documentSlice = createSlice({
       })
       .addCase(deleteDocument.fulfilled, (state, action) => {
         state.loading = false;
-        state.documents = state.documents.filter(doc => doc.id !== action.payload.id);
-        
+        if (state.documents) {
+          state.documents = state.documents.filter(
+            (doc) => doc.id !== action.payload.id
+          );
+        }
+
         // Limpar documento atual se for o mesmo
-        if (state.currentDocument && state.currentDocument.id === action.payload.id) {
+        if (
+          state.currentDocument &&
+          state.currentDocument.id === action.payload.id
+        ) {
           state.currentDocument = null;
         }
       })
@@ -260,7 +293,7 @@ const documentSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Join collaboration
       .addCase(joinCollaboration.pending, (state) => {
         state.loading = true;
@@ -275,13 +308,13 @@ const documentSlice = createSlice({
         state.error = action.payload;
         state.collaborationActive = false;
       })
-      
+
       // Leave collaboration
       .addCase(leaveCollaboration.fulfilled, (state) => {
         state.collaborationActive = false;
         state.collaborators = [];
       });
-  }
+  },
 });
 
 export const {
@@ -293,7 +326,7 @@ export const {
   removeCollaborator,
   updateCollaboratorStatus,
   setDocumentVersions,
-  clearCollaborationState
+  clearCollaborationState,
 } = documentSlice.actions;
 
 export default documentSlice;

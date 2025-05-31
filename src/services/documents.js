@@ -66,7 +66,6 @@ class DocumentService {
       }
       
       // Enviar requisição com log adicional para depuração
-      console.log('Criando documento com headers:', this.api.defaults.headers);
       const response = await this.api.post('/api/documents', documentData);
       return response;
     } catch (error) {

@@ -90,10 +90,8 @@ const DocumentListScreen = ({ navigation }) => {
   // Função para criar novo documento
   const handleCreateDocument = async () => {
     try {
-      // Obter token diretamente do estado do Redux em vez de buscar do storage
-      const { token, isAuthenticated } = useSelector(state => state.auth);
-      
-      if (!isAuthenticated || !token) {
+      // Use token from the auth state that was already retrieved at component level
+      if (!user) {
         Alert.alert('Erro de autenticação', 'Você precisa estar autenticado para criar documentos.');
         return;
       }
