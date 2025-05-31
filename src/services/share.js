@@ -136,6 +136,56 @@ class ShareService {
       throw error;
     }
   }
+
+  /**
+   * Obtém lista de colaboradores de um documento
+   * @param {String} documentId - ID do documento
+   * @returns {Promise} Promessa com lista de colaboradores
+   */
+  async getCollaborators(documentId) {
+    try {
+      const response = await this.api.get(`/api/share/${documentId}/collaborators`);
+      return response;
+    } catch (error) {
+      console.error("Erro ao obter colaboradores:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Atualiza permissão de um colaborador em um documento
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário
+   * @param {String} permission - Nova permissão (read/write)
+   * @returns {Promise} Promessa com resultado da operação
+   */
+  async updateCollaboratorPermission(documentId, userId, permission) {
+    try {
+      const response = await this.api.put(`/api/share/${documentId}/collaborators/${userId}`, {
+        permission
+      });
+      return response;
+    } catch (error) {
+      console.error("Erro ao atualizar permissão do colaborador:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Remove um colaborador de um documento
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário a ser removido
+   * @returns {Promise} Promessa com resultado da operação
+   */
+  async removeCollaborator(documentId, userId) {
+    try {
+      const response = await this.api.delete(`/api/share/${documentId}/collaborators/${userId}`);
+      return response;
+    } catch (error) {
+      console.error("Erro ao remover colaborador:", error);
+      throw error;
+    }
+  }
 }
 
 export default new ShareService();

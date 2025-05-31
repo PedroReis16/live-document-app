@@ -86,6 +86,46 @@ export const processDeepLinkToken = createAsyncThunk(
   }
 );
 
+export const fetchCollaborators = createAsyncThunk(
+  'share/fetchCollaborators',
+  async (documentId, { rejectWithValue }) => {
+    try {
+      const response = await ShareService.getCollaborators(documentId);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Erro ao carregar colaboradores');
+    }
+  }
+);
+
+export const updatePermission = createAsyncThunk(
+  'share/updatePermission',
+  async ({ documentId, userId, permission }, { rejectWithValue }) => {
+    try {
+      const response = await ShareService.updateCollaboratorPermission(
+        documentId, 
+        userId, 
+        permission
+      );
+      return { userId, permission, ...response };
+    } catch (error) {
+      return rejectWithValue(error.message || 'Erro ao atualizar permissão');
+    }
+  }
+);
+
+export const removeCollaborator = createAsyncThunk(
+  'share/removeCollaborator',
+  async ({ documentId, userId }, { rejectWithValue }) => {
+    try {
+      await ShareService.removeCollaborator(documentId, userId);
+      return { userId };
+    } catch (error) {
+      return rejectWithValue(error.message || 'Erro ao remover colaborador');
+    }
+  }
+);
+
 const shareSlice = createSlice({
   name: 'share',
   initialState: {
@@ -95,6 +135,7 @@ const shareSlice = createSlice({
     shareLink: null,
     shareLinkUrl: null,
     deepLinkToken: null,
+    collaborators: [],
   },
   reducers: {
     resetShareState: (state) => {
@@ -195,6 +236,54 @@ const shareSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.deepLinkToken = null;
+      })
+      
+      // Fetch Collaborators
+      .addCase(fetchCollaborators.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCollaborators.fulfilled, (state, action) => {
+        state.loading = false;
+        state.collaborators = action.payload;
+      })
+      .addCase(fetchCollaborators.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Update Collaborator Permission
+      .addCase(updatePermission.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updatePermission.fulfilled, (state, action) => {
+        state.loading = false;
+        state.collaborators = state.collaborators.map(collaborator => 
+          collaborator.id === action.payload.userId 
+            ? { ...collaborator, permission: action.payload.permission }
+            : collaborator
+        );
+      })
+      .addCase(updatePermission.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Remove Collaborator
+      .addCase(removeCollaborator.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(removeCollaborator.fulfilled, (state, action) => {
+        state.loading = false;
+        state.collaborators = state.collaborators.filter(
+          collaborator => collaborator.id !== action.payload.userId
+        );
+      })
+      .addCase(removeCollaborator.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   }
 });

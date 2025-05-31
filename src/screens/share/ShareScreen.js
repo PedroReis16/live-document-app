@@ -18,13 +18,10 @@ const ShareScreen = ({ route, navigation }) => {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("collaborators");
 
-  const { 
-    loading,
-    shareLink,
-    shareLinkUrl,
-    error,
-  } = useSelector((state) => state.share);
-  
+  const { loading, shareLink, shareLinkUrl, error } = useSelector(
+    (state) => state.share
+  );
+
   const { user } = useSelector((state) => state.auth);
   const { currentDocument } = useSelector((state) => state.documents);
 
@@ -45,10 +42,12 @@ const ShareScreen = ({ route, navigation }) => {
     }
 
     try {
-      await dispatch(generateShareLink({ 
-        documentId,
-        options: { permission: 'read', expiresIn: '7d' }
-      })).unwrap();
+      await dispatch(
+        generateShareLink({
+          documentId,
+          options: { permission: "read", expiresIn: "7d" },
+        })
+      ).unwrap();
     } catch (error) {
       console.error("Erro ao gerar link de compartilhamento:", error);
       Alert.alert(
@@ -63,22 +62,22 @@ const ShareScreen = ({ route, navigation }) => {
     if (!email || !documentId) return;
 
     try {
-      await dispatch(shareWithUser({
-        documentId,
-        email,
-        permission
-      })).unwrap();
-      
-      Alert.alert(
-        "Sucesso",
-        "Documento compartilhado com sucesso!"
-      );
-      
+      await dispatch(
+        shareWithUser({
+          documentId,
+          email,
+          permission,
+        })
+      ).unwrap();
+
+      Alert.alert("Sucesso", "Documento compartilhado com sucesso!");
+
       return true;
     } catch (error) {
       Alert.alert(
         "Erro",
-        error.message || "Não foi possível compartilhar o documento. Verifique o email e tente novamente."
+        error.message ||
+          "Não foi possível compartilhar o documento. Verifique o email e tente novamente."
       );
       throw error;
     }
@@ -90,7 +89,9 @@ const ShareScreen = ({ route, navigation }) => {
 
     try {
       await Share.share({
-        message: `Acesse meu documento "${currentDocument.title || "Documento"}" através deste link: ${shareLinkUrl}`,
+        message: `Acesse meu documento "${
+          currentDocument.title || "Documento"
+        }" através deste link: ${shareLinkUrl}`,
         url: shareLinkUrl,
         title: "Compartilhar documento",
       });
@@ -102,15 +103,15 @@ const ShareScreen = ({ route, navigation }) => {
 
   // Abrir tela do scanner QR Code
   const handleOpenScanner = () => {
-    navigation.navigate('QRCodeScannerScreen');
+    navigation.navigate("QRCodeScannerScreen");
   };
 
   // Renderizar o conteúdo baseado na aba selecionada
   const renderContent = () => {
     switch (activeTab) {
-      case 'collaborators':
+      case "collaborators":
         return <CollaboratorsList documentId={documentId} />;
-      case 'email':
+      case "email":
         return (
           <EmailShareTab
             documentId={documentId}
@@ -118,7 +119,7 @@ const ShareScreen = ({ route, navigation }) => {
             handleShareWithUser={handleShareWithUser}
           />
         );
-      case 'qrcode':
+      case "qrcode":
         return (
           <QRCodeTab
             documentId={documentId}
@@ -129,12 +130,8 @@ const ShareScreen = ({ route, navigation }) => {
             shareLinkExternally={shareLinkExternally}
           />
         );
-      case 'scan':
-        return (
-          <ScannerTab
-            handleOpenScanner={handleOpenScanner}
-          />
-        );
+      case "scan":
+        return <ScannerTab handleOpenScanner={handleOpenScanner} />;
       default:
         return null;
     }
@@ -142,16 +139,9 @@ const ShareScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <TabNavigator
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-        />
+      <TabNavigator activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        <View style={styles.contentContainer}>
-          {renderContent()}
-        </View>
-      </ScrollView>
+      <View style={styles.contentContainer}>{renderContent()}</View>
     </View>
   );
 };
