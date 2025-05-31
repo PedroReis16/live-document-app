@@ -191,28 +191,42 @@ const documentSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Fetch documents
-      .addCase(fetchDocuments.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      // .addCase(fetchDocuments.pending, (state) => {
+      //   state.loading = true;
+      //   state.error = null;
+      // })
       .addCase(fetchDocuments.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loading = false; // Changed from true to false to indicate loading is complete
         
         // Processar a resposta garantindo que os documentos tenham um campo 'id'
         let documents = action.payload;
+        let allDocuments = [];
         
-        // Se documents for um objeto com uma propriedade de dados, extrair os documentos
-        if (documents && typeof documents === 'object' && documents.documents) {
-          documents = documents.documents;
+        // Handle the server response format with "owned" and "shared" arrays
+        if (documents && typeof documents === 'object') {
+          if (documents.owned && Array.isArray(documents.owned)) {
+            allDocuments = [...documents.owned];
+          }
+          
+          if (documents.shared && Array.isArray(documents.shared)) {
+            // Mark shared documents as shared
+            const sharedDocs = documents.shared.map(doc => ({...doc, shared: true}));
+            allDocuments = [...allDocuments, ...sharedDocs];
+          }
+          
+          // For backward compatibility - in case the format is different
+          if (documents.documents && Array.isArray(documents.documents)) {
+            allDocuments = [...allDocuments, ...documents.documents];
+          }
         }
         
         // Garantir que é um array
-        if (!Array.isArray(documents)) {
-          documents = [];
+        if (!Array.isArray(allDocuments)) {
+          allDocuments = [];
         }
         
         // Normalizar documentos para garantir que todos tenham um campo 'id'
-        state.documents = documents.map(doc => {
+        state.documents = allDocuments.map(doc => {
           // Se o documento já tiver um campo 'id', usá-lo; caso contrário, usar o '_id'
           if (!doc.id && doc._id) {
             return { ...doc, id: doc._id };
