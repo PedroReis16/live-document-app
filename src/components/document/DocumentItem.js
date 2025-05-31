@@ -21,9 +21,9 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
     });
   };
 
-  // Abrir documento para edição
+  // Abrir documento para visualização
   const handlePress = () => {
-    navigation.navigate('DocumentEditScreen', {
+    navigation.navigate('DocumentView', {
       documentId: document.id,
       isSharedDocument: document.shared || false
     });
@@ -35,7 +35,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
       onShare(document);
     } else {
       // Navegar diretamente para a tela de compartilhamento se não houver handler
-      navigation.navigate('ShareScreen', { documentId: document.id });
+      navigation.navigate('Share', { documentId: document.id });
     }
   };
   

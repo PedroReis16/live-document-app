@@ -42,9 +42,19 @@ const DocumentEditScreen = ({ route, navigation }) => {
   // Carregar documento
   useEffect(() => {
     if (documentId) {
-      dispatch(fetchDocumentById(documentId));
+      // Verificar se é um documento local passado via params
+      if (route.params?.isNewDocument && route.params?.documentData) {
+        // Usar diretamente os dados do documento local
+        dispatch({
+          type: 'documents/setCurrentDocument',
+          payload: route.params.documentData
+        });
+      } else {
+        // Buscar do servidor
+        dispatch(fetchDocumentById(documentId));
+      }
     }
-  }, [documentId, dispatch]);
+  }, [documentId, dispatch, route.params]);
   
   // Definir título da tela
   useEffect(() => {

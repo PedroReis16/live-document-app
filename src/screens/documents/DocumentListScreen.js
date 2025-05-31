@@ -37,7 +37,8 @@ const DocumentListScreen = ({ navigation }) => {
 
   // Efeito para filtrar documentos baseado na busca e aba ativa
   useEffect(() => {
-    if (documents) {
+    // Verificar se documents existe e é um array
+    if (documents && Array.isArray(documents)) {
       let filtered = [...documents];
       
       // Filtrar por texto de busca
@@ -60,6 +61,9 @@ const DocumentListScreen = ({ navigation }) => {
       });
       
       setFilteredDocuments(filtered);
+    } else {
+      // Se documents não for um array válido, inicializar filteredDocuments como array vazio
+      setFilteredDocuments([]);
     }
   }, [documents, searchText, activeTab]);
 
@@ -85,6 +89,7 @@ const DocumentListScreen = ({ navigation }) => {
   const handleCreateDocument = () => {
     // Criar documento vazio e navegar para a tela de edição
     const newDocument = {
+      id: `local_${Date.now()}`, // Gera um ID temporário local
       title: 'Novo documento',
       content: '',
       createdAt: new Date().toISOString(),
@@ -92,23 +97,30 @@ const DocumentListScreen = ({ navigation }) => {
       userId: user?.id,
     };
     
+    // Tentar criar no servidor, com fallback para criação local
     DocumentService.createDocument(newDocument)
       .then(createdDoc => {
         // Redirecionar para a tela de edição com o ID do novo documento
         navigation.navigate('DocumentEdit', {
-          documentId: createdDoc.id,
+          documentId: createdDoc.id || newDocument.id,
           isSharedDocument: false
         });
       })
       .catch(error => {
-        console.error('Erro ao criar documento:', error);
-        Alert.alert('Erro', 'Não foi possível criar o documento. Tente novamente.');
+        console.error('Erro ao criar documento no servidor, usando versão local:', error);
+        
+        // Mesmo com erro no servidor, ainda navega para tela de edição com documento local
+        navigation.navigate('DocumentEdit', {
+          documentId: newDocument.id,
+          isNewDocument: true, // Indica que é um novo documento (ainda não salvo no servidor)
+          documentData: newDocument // Passa os dados diretamente para evitar outra chamada à API
+        });
       });
   };
 
   // Função para lidar com o clique em um documento
   const handleDocumentPress = (document) => {
-    navigation.navigate('DocumentEdit', {
+    navigation.navigate('DocumentView', {
       documentId: document.id,
       isSharedDocument: document.shared || false
     });

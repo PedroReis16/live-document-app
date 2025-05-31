@@ -51,6 +51,16 @@ const ProfileScreen = ({ navigation }) => {
         darkMode: user.preferences?.darkMode ?? false,
         profileImage: user.profileImage || null
       });
+    } else {
+      // Definir valores padrão caso o usuário não esteja disponível
+      setProfileData({
+        name: '',
+        email: '',
+        bio: '',
+        notifications: true,
+        darkMode: false,
+        profileImage: null
+      });
     }
   }, [user]);
 
@@ -293,7 +303,7 @@ const ProfileScreen = ({ navigation }) => {
               style={styles.logoutButton}
               textColor="#f44336"
               outlined
-              icon="log-out"
+              icon={<Feather name="log-out" size={16} color="#f44336" />}
             />
           )}
         </View>
