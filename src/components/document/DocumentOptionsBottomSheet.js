@@ -24,13 +24,13 @@ const DocumentOptionsBottomSheet = ({
       setModalVisible(true);
       Animated.timing(slideAnim, {
         toValue: 1,
-        duration: 250,
+        duration: 150,
         useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 250,
+        duration: 150,
         useNativeDriver: true,
       }).start(() => {
         setModalVisible(false);
@@ -70,8 +70,7 @@ const DocumentOptionsBottomSheet = ({
         >
           <View style={styles.handle} />
 
-            <Text style={styles.title}>O que você deseja fazer?</Text>
-          
+          <Text style={styles.title}>O que você deseja fazer?</Text>
 
           <TouchableOpacity style={styles.optionButton} onPress={onScanQR}>
             <View style={[styles.iconContainer, styles.scanIconContainer]}>

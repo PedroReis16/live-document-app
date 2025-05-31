@@ -97,7 +97,7 @@ const DocumentListScreen = ({ navigation }) => {
       setRefreshing(false);
     }
   };
-  
+
   // Abrir o menu de opções
   const handleOpenOptions = () => {
     setShowOptionsBottomSheet(true);
@@ -107,7 +107,7 @@ const DocumentListScreen = ({ navigation }) => {
   const handleCloseOptions = () => {
     setShowOptionsBottomSheet(false);
   };
-  
+
   // Navegar para o scanner de QR Code
   const handleScanQRCode = () => {
     setShowOptionsBottomSheet(false);
@@ -117,7 +117,7 @@ const DocumentListScreen = ({ navigation }) => {
   // Função para criar novo documento
   const handleCreateDocument = async () => {
     setShowOptionsBottomSheet(false);
-    
+
     try {
       // Use token from the auth state that was already retrieved at component level
       if (!user) {
@@ -280,12 +280,6 @@ const DocumentListScreen = ({ navigation }) => {
         {/* Cabeçalho */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Meus Documentos</Text>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleOpenOptions}
-          >
-            <Feather name="plus" size={24} color="#2196f3" />
-          </TouchableOpacity>
         </View>
 
         {/* Campo de busca */}
@@ -381,14 +375,21 @@ const DocumentListScreen = ({ navigation }) => {
           ListEmptyComponent={renderEmptyComponent}
           showsVerticalScrollIndicator={false}
         />
-        
+
         {/* BottomSheet de opções */}
-        <DocumentOptionsBottomSheet 
+        <DocumentOptionsBottomSheet
           visible={showOptionsBottomSheet}
           onClose={handleCloseOptions}
           onCreateNew={handleCreateDocument}
           onScanQR={handleScanQRCode}
         />
+
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={handleOpenOptions}
+        >
+          <Feather name="plus" size={24} color="#ffffff" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
