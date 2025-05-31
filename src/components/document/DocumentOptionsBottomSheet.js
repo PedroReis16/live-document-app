@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,29 +6,73 @@ import {
   Animated,
   Modal,
   TouchableWithoutFeedback,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { styles } from './styles/DocumentOptionsBottomSheet.style';
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { styles } from "./styles/DocumentOptionsBottomSheet.style";
 
-const DocumentOptionsBottomSheet = ({ visible, onClose, onCreateNew, onScanQR }) => {
-  
+const DocumentOptionsBottomSheet = ({
+  visible,
+  onClose,
+  onCreateNew,
+  onScanQR,
+}) => {
+  const [slideAnim] = React.useState(new Animated.Value(0));
+  const [modalVisible, setModalVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    if (visible) {
+      setModalVisible(true);
+      Animated.timing(slideAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setModalVisible(false);
+      });
+    }
+  }, [visible]);
+
+  const handleClose = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+    });
+  };
+
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [300, 0],
+  });
+
   return (
     <Modal
       animationType="fade"
       transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
+      visible={modalVisible}
+      onRequestClose={handleClose}
     >
       <View style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={onClose}>
+        <TouchableWithoutFeedback onPress={handleClose}>
           <View style={styles.backdrop} />
         </TouchableWithoutFeedback>
-        
-        <View style={styles.bottomSheet}>
+
+        <Animated.View
+          style={[styles.bottomSheet, { transform: [{ translateY }] }]}
+        >
           <View style={styles.handle} />
+
+            <Text style={styles.title}>O que você deseja fazer?</Text>
           
-          <Text style={styles.title}>O que você deseja fazer?</Text>
-          
+
           <TouchableOpacity style={styles.optionButton} onPress={onScanQR}>
             <View style={[styles.iconContainer, styles.scanIconContainer]}>
               <Feather name="camera" size={24} color="#2196f3" />
@@ -40,7 +84,7 @@ const DocumentOptionsBottomSheet = ({ visible, onClose, onCreateNew, onScanQR })
               </Text>
             </View>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.optionButton} onPress={onCreateNew}>
             <View style={[styles.iconContainer, styles.newIconContainer]}>
               <Feather name="file-plus" size={24} color="#4caf50" />
@@ -52,11 +96,7 @@ const DocumentOptionsBottomSheet = ({ visible, onClose, onCreateNew, onScanQR })
               </Text>
             </View>
           </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
