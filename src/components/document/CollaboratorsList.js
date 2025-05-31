@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  StyleSheet,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -19,9 +18,6 @@ import {
   removeCollaborator,
 } from "../../store/shareSlice";
 
-// Serviços
-import ShareService from "../../services/share";
-
 // Lista de colaboradores ativos
 const CollaboratorsList = ({ documentId, isOwner = false }) => {
   const dispatch = useDispatch();
@@ -30,7 +26,7 @@ const CollaboratorsList = ({ documentId, isOwner = false }) => {
   const [error, setError] = useState(null);
 
   const { user } = useSelector((state) => state.auth);
-  const { collaborators, loading: storeLoading } = useSelector(
+  const { collaborators = [], loading: storeLoading } = useSelector(
     (state) => state.share
   );
 
@@ -249,31 +245,37 @@ const CollaboratorsList = ({ documentId, isOwner = false }) => {
     );
   };
 
+  // Garantir que collaborators seja sempre um array
+  const safeCollaborators = Array.isArray(collaborators) ? collaborators : [];
+
+  // Se estiver carregando, mostrar indicador de carregamento
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text style={styles.loadingText}>Carregando colaboradores...</Text>
+      </View>
+    );
+  }
+
+  // Renderizar a lista de colaboradores
   return (
     <View style={styles.container}>
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
-          <Text style={styles.loadingText}>Carregando colaboradores...</Text>
-        </View>
-      ) : (
-        <FlatList
-          key={item.id}
-          data={collaborators}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCollaboratorItem}
-          ListEmptyComponent={renderEmptyList}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          contentContainerStyle={
-            collaborators.length === 0 ? { flex: 1 } : styles.listContent
-          }
-        />
-      )}
+      <FlatList
+        data={safeCollaborators}
+        keyExtractor={(item) => item.id || String(Math.random())}
+        renderItem={renderCollaboratorItem}
+        ListEmptyComponent={renderEmptyList}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        contentContainerStyle={
+          safeCollaborators.length === 0 ? { flex: 1 } : styles.listContent
+        }
+        removeClippedSubviews={true}
+        windowSize={5}
+      />
     </View>
   );
 };
-
-
 
 export default CollaboratorsList;

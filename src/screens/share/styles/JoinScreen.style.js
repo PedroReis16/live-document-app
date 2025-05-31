@@ -52,4 +52,23 @@ export const styles = StyleSheet.create({
     color: "#666",
     lineHeight: 20,
   },
+  // Novos estilos para o separador "ou" e botão de escaneamento
+  orContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+  },
+  orText: {
+    color: "#666",
+    fontSize: 14,
+    marginHorizontal: 16,
+  },
+  scanButton: {
+    marginTop: 4,
+  },
 });

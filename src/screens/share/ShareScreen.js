@@ -1,247 +1,140 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity,
-  Share,
-} from "react-native";
+import { View, Alert, ScrollView, Share } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import { Feather } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
 import { styles } from "./styles/ShareScreen.style";
 
 // Redux actions
-import { generateShareCode, fetchCollaborators } from "../../store/shareSlice";
+import { generateShareLink, shareWithUser } from "../../store/shareSlice";
 
 // Componentes
-import Button from "../../components/common/Button";
+import TabNavigator from "../../components/share/TabNavigator";
+import EmailShareTab from "../../components/share/EmailShareTab";
+import QRCodeTab from "../../components/share/QRCodeTab";
+import ScannerTab from "../../components/share/ScannerTab";
 import CollaboratorsList from "../../components/document/CollaboratorsList";
 
 const ShareScreen = ({ route, navigation }) => {
   const { documentId } = route.params || {};
   const dispatch = useDispatch();
+  const [activeTab, setActiveTab] = useState("collaborators");
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState(null);
-  const [showCollaborators, setShowCollaborators] = useState(true);
+  const { loading, shareLink, shareLinkUrl, error } = useSelector(
+    (state) => state.share
+  );
 
-  const { shareCode, shareCodeExpiration, loading, collaborators } =
-    useSelector((state) => state.share);
   const { user } = useSelector((state) => state.auth);
   const { currentDocument } = useSelector((state) => state.documents);
-
-  // Carregar colaboradores ao iniciar
-  useEffect(() => {
-    if (documentId) {
-      dispatch(fetchCollaborators(documentId));
-    }
-  }, [documentId, dispatch]);
 
   // Atualizar título da tela com nome do documento
   useEffect(() => {
     if (currentDocument) {
       navigation.setOptions({
-        title: `Compartilhar: ${currentDocument.title}`,
+        title: `Compartilhar: ${currentDocument.title || "Documento"}`,
       });
     }
   }, [currentDocument, navigation]);
 
-  // Gerar código de compartilhamento
-  const handleGenerateCode = async () => {
+  // Gerar link compartilhável e QR Code
+  const handleGenerateLink = async () => {
     if (!documentId) {
       Alert.alert("Erro", "ID do documento não encontrado.");
       return;
     }
 
-    setIsGenerating(true);
-    setError(null);
-
     try {
-      await dispatch(generateShareCode(documentId)).unwrap();
+      await dispatch(
+        generateShareLink({
+          documentId,
+          options: { permission: "read", expiresIn: "7d" },
+        })
+      ).unwrap();
     } catch (error) {
-      console.error("Erro ao gerar código de compartilhamento:", error);
-      setError("Não foi possível gerar o código de compartilhamento");
-
+      console.error("Erro ao gerar link de compartilhamento:", error);
       Alert.alert(
         "Erro",
-        "Não foi possível gerar o código de compartilhamento. Tente novamente."
+        "Não foi possível gerar o link de compartilhamento. Tente novamente."
       );
-    } finally {
-      setIsGenerating(false);
     }
   };
 
-  // Formatar data de expiração
-  const formatExpirationDate = (dateString) => {
-    if (!dateString) return "";
-
-    const date = new Date(dateString);
-    return date.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // Copiar código para a área de transferência
-  const copyCodeToClipboard = async () => {
-    if (!shareCode) return;
-
-    await Clipboard.setStringAsync(shareCode);
-    Alert.alert("Copiado", "Código copiado para a área de transferência");
-  };
-
-  // Compartilhar código via compartilhamento nativo
-  const shareCodeExternally = async () => {
-    if (!shareCode || !currentDocument) return;
+  // Compartilhar com usuário por email
+  const handleShareWithUser = async ({ email, permission }) => {
+    if (!email || !documentId) return;
 
     try {
-      const result = await Share.share({
-        message: `Entre no meu documento "${
-          currentDocument.title
-        }" com o código: ${shareCode}. Este código expira em ${formatExpirationDate(
-          shareCodeExpiration
-        )}.`,
+      await dispatch(
+        shareWithUser({
+          documentId,
+          email,
+          permission,
+        })
+      ).unwrap();
+
+      Alert.alert("Sucesso", "Documento compartilhado com sucesso!");
+
+      return true;
+    } catch (error) {
+      Alert.alert(
+        "Erro",
+        error.message ||
+          "Não foi possível compartilhar o documento. Verifique o email e tente novamente."
+      );
+      throw error;
+    }
+  };
+
+  // Compartilhar link via compartilhamento nativo
+  const shareLinkExternally = async () => {
+    if (!shareLinkUrl || !currentDocument) return;
+
+    try {
+      await Share.share({
+        message: `Acesse meu documento "${
+          currentDocument.title || "Documento"
+        }" através deste link: ${shareLinkUrl}`,
+        url: shareLinkUrl,
         title: "Compartilhar documento",
       });
     } catch (error) {
       console.error("Erro ao compartilhar:", error);
-      Alert.alert("Erro", "Não foi possível compartilhar o código.");
+      Alert.alert("Erro", "Não foi possível compartilhar o link.");
     }
   };
 
-  // Alternar entre códigos e colaboradores
-  const toggleView = () => {
-    setShowCollaborators(!showCollaborators);
+  // Abrir tela do scanner QR Code
+  const handleOpenScanner = () => {
+    navigation.navigate("QRCodeScannerScreen");
   };
 
-  // Verificar se o usuário é proprietário do documento
-  const isOwner = currentDocument && currentDocument.owner === user?.id;
+  // Renderizar o conteúdo baseado na aba selecionada
+  const renderContent = () => {
+    switch (activeTab) {
+      case "collaborators":
+        return <CollaboratorsList documentId={documentId} />;
+     
+      case "qrcode":
+        return (
+          <QRCodeTab
+            documentId={documentId}
+            loading={loading}
+            shareLinkUrl={shareLinkUrl}
+            currentDocument={currentDocument}
+            handleGenerateLink={handleGenerateLink}
+            shareLinkExternally={shareLinkExternally}
+          />
+        );
+      case "scan":
+        return <ScannerTab handleOpenScanner={handleOpenScanner} />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            showCollaborators && styles.activeTabButton,
-          ]}
-          onPress={() => setShowCollaborators(true)}
-        >
-          <Feather
-            name="users"
-            size={20}
-            color={showCollaborators ? "#2196f3" : "#666"}
-          />
-          <Text
-            style={[
-              styles.tabButtonText,
-              showCollaborators && styles.activeTabButtonText,
-            ]}
-          >
-            Colaboradores
-          </Text>
-        </TouchableOpacity>
+      <TabNavigator activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            !showCollaborators && styles.activeTabButton,
-          ]}
-          onPress={() => setShowCollaborators(false)}
-        >
-          <Feather
-            name="share-2"
-            size={20}
-            color={!showCollaborators ? "#2196f3" : "#666"}
-          />
-          <Text
-            style={[
-              styles.tabButtonText,
-              !showCollaborators && styles.activeTabButtonText,
-            ]}
-          >
-            Código de acesso
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {showCollaborators ? (
-        <CollaboratorsList documentId={documentId} isOwner={isOwner} />
-      ) : (
-        <View style={styles.codeContainer}>
-          <View style={styles.codeHeaderContainer}>
-            <Feather name="link" size={48} color="#2196f3" />
-            <Text style={styles.codeHeader}>Código de compartilhamento</Text>
-            <Text style={styles.codeSubheader}>
-              Compartilhe este código com outras pessoas para permitir acesso ao
-              documento
-            </Text>
-          </View>
-
-          {shareCode ? (
-            <View style={styles.codeContentContainer}>
-              <View style={styles.codeDisplay}>
-                <Text style={styles.codeText}>{shareCode}</Text>
-              </View>
-
-              <Text style={styles.expirationText}>
-                Expira em: {formatExpirationDate(shareCodeExpiration)}
-              </Text>
-
-              <View style={styles.codeActions}>
-                <Button
-                  title="Copiar código"
-                  onPress={copyCodeToClipboard}
-                  type="outline"
-                  leftIcon={<Feather name="copy" size={20} color="#2196f3" />}
-                />
-
-                <Button
-                  title="Compartilhar"
-                  onPress={shareCodeExternally}
-                  leftIcon={<Feather name="share-2" size={20} color="#fff" />}
-                />
-              </View>
-
-              <Button
-                title="Gerar novo código"
-                onPress={handleGenerateCode}
-                type="text"
-                loading={isGenerating}
-                disabled={isGenerating}
-                containerStyle={styles.newCodeButton}
-              />
-            </View>
-          ) : (
-            <View style={styles.noCodeContainer}>
-              {loading || isGenerating ? (
-                <ActivityIndicator size="large" color="#2196f3" />
-              ) : (
-                <>
-                  <Text style={styles.noCodeText}>
-                    Nenhum código de compartilhamento gerado
-                  </Text>
-
-                  <Button
-                    title="Gerar código"
-                    onPress={handleGenerateCode}
-                    loading={isGenerating}
-                    disabled={isGenerating}
-                    containerStyle={styles.generateButton}
-                  />
-                </>
-              )}
-
-              {error && <Text style={styles.errorText}>{error}</Text>}
-            </View>
-          )}
-        </View>
-      )}
+      <View style={styles.contentContainer}>{renderContent()}</View>
     </View>
   );
 };

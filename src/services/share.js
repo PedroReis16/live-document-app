@@ -7,126 +7,182 @@ class ShareService {
   }
 
   /**
-   * Compartilha um documento com outros usuários
-   * @param {string} documentId - ID do documento
-   * @param {Array} users - Lista de usuários para compartilhar (email e permissão)
+   * Compartilha um documento com um usuário pelo email
+   * @param {String} documentId - ID do documento
+   * @param {String} email - Email do destinatário
+   * @param {String} permission - Permissão a conceder
    * @returns {Promise} Promessa com resultado do compartilhamento
    */
-  async shareDocument(documentId, users) {
+  async shareWithUser(documentId, email, permission = 'read') {
     try {
-      const response = await this.api.post(`/api/share/document/${documentId}`, { users });
+      const response = await this.api.post(`/api/share/${documentId}`, {
+        email,
+        permission
+      });
       return response;
     } catch (error) {
-      console.error(`Erro ao compartilhar documento ${documentId}:`, error);
+      console.error("Erro ao compartilhar documento:", error);
       throw error;
     }
   }
 
   /**
-   * Revoga compartilhamento com um usuário específico
-   * @param {string} documentId - ID do documento
-   * @param {string} userId - ID do usuário
-   * @returns {Promise} Promessa com resultado da revogação
+   * Revoga acesso de um usuário a um documento
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário
+   * @returns {Promise} Promessa com resultado da operação
    */
-  async revokeDocumentAccess(documentId, userId) {
+  async revokeAccess(documentId, userId) {
     try {
-      const response = await this.api.delete(`/api/share/document/${documentId}/user/${userId}`);
+      const response = await this.api.delete(`/api/share/${documentId}/${userId}`);
       return response;
     } catch (error) {
-      console.error(`Erro ao revogar acesso ao documento ${documentId}:`, error);
+      console.error("Erro ao revogar acesso:", error);
       throw error;
     }
   }
 
   /**
-   * Atualiza permissão de um usuário em um documento compartilhado
-   * @param {string} documentId - ID do documento
-   * @param {string} userId - ID do usuário
-   * @param {string} permission - Nova permissão (read, write, admin)
-   * @returns {Promise} Promessa com permissão atualizada
-   */
-  async updateUserPermission(documentId, userId, permission) {
-    try {
-      const response = await this.api.put(`/api/share/document/${documentId}/user/${userId}`, { permission });
-      return response;
-    } catch (error) {
-      console.error(`Erro ao atualizar permissão no documento ${documentId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Busca todos os usuários com quem o documento está compartilhado
-   * @param {string} documentId - ID do documento
+   * Obtém lista de compartilhamentos de um documento
+   * @param {String} documentId - ID do documento
    * @returns {Promise} Promessa com lista de compartilhamentos
    */
-  async getDocumentShares(documentId) {
+  async getShares(documentId) {
     try {
-      const response = await this.api.get(`/api/share/document/${documentId}`);
+      const response = await this.api.get(`/api/share/${documentId}`);
       return response;
     } catch (error) {
-      console.error(`Erro ao buscar compartilhamentos do documento ${documentId}:`, error);
+      console.error("Erro ao obter compartilhamentos:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Atualiza permissão de um usuário em um documento
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário
+   * @param {String} permission - Nova permissão
+   * @returns {Promise} Promessa com resultado da operação
+   */
+  async updatePermission(documentId, userId, permission) {
+    try {
+      const response = await this.api.put(`/api/share/${documentId}/${userId}`, {
+        permission
+      });
+      return response;
+    } catch (error) {
+      console.error("Erro ao atualizar permissão:", error);
       throw error;
     }
   }
 
   /**
-   * Cria um link público para acesso a um documento
-   * @param {string} documentId - ID do documento
-   * @param {Object} options - Opções do link (expiração, permissão)
-   * @returns {Promise} Promessa com dados do link
+   * Gera um código de compartilhamento para um documento
+   * @param {String} documentId - ID do documento
+   * @returns {Promise} Promessa com código de compartilhamento
    */
-  async createPublicLink(documentId, options = {}) {
+  async generateShareCode(documentId) {
     try {
-      const response = await this.api.post(`/api/share/document/${documentId}/public-link`, options);
+      const response = await this.api.post(`/api/share/${documentId}/code`);
       return response;
     } catch (error) {
-      console.error(`Erro ao criar link público para documento ${documentId}:`, error);
+      console.error("Erro ao gerar código de compartilhamento:", error);
       throw error;
     }
   }
 
   /**
-   * Revoga um link público de um documento
-   * @param {string} documentId - ID do documento
-   * @param {string} linkId - ID do link público
-   * @returns {Promise} Promessa com resultado da revogação
+   * Entra em um documento usando código de compartilhamento
+   * @param {String} shareCode - Código de compartilhamento
+   * @returns {Promise} Promessa com informações do documento
    */
-  async revokePublicLink(documentId, linkId) {
+  async joinWithCode(shareCode) {
     try {
-      const response = await this.api.delete(`/api/share/document/${documentId}/public-link/${linkId}`);
+      const response = await this.api.post('/api/share/join', { shareCode });
       return response;
     } catch (error) {
-      console.error(`Erro ao revogar link público do documento ${documentId}:`, error);
+      console.error("Erro ao entrar com código de compartilhamento:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Gera um link de compartilhamento para o documento
+   * @param {String} documentId - ID do documento
+   * @param {Object} options - Opções do link (permission, expiresIn)
+   * @returns {Promise} Promessa com informações do link gerado
+   */
+  async generateShareLink(documentId, options = {}) {
+    try {
+      const response = await this.api.post(`/api/share/document/${documentId}/generate-link`, options);
+      return response;
+    } catch (error) {
+      console.error("Erro ao gerar link de compartilhamento:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Entra em um documento usando token de compartilhamento (via QR code ou URL)
+   * @param {String} shareToken - Token do link de compartilhamento
+   * @returns {Promise} Promessa com informações do documento
+   */
+  async joinByShareToken(shareToken) {
+    try {
+      const response = await this.api.post('/api/share/join-by-token', { shareToken });
+      return response;
+    } catch (error) {
+      console.error("Erro ao entrar com token de compartilhamento:", error);
       throw error;
     }
   }
 
   /**
-   * Entra em um documento compartilhado através de convite
-   * @param {string} inviteCode - Código do convite
-   * @returns {Promise} Promessa com acesso ao documento
+   * Obtém lista de colaboradores de um documento
+   * @param {String} documentId - ID do documento
+   * @returns {Promise} Promessa com lista de colaboradores
    */
-  async joinSharedDocument(inviteCode) {
+  async getCollaborators(documentId) {
     try {
-      const response = await this.api.post('/api/share/join', { inviteCode });
+      const response = await this.api.get(`/api/share/${documentId}/collaborators`);
       return response;
     } catch (error) {
-      console.error('Erro ao entrar em documento compartilhado:', error);
+      console.error("Erro ao obter colaboradores:", error);
       throw error;
     }
   }
-
+  
   /**
-   * Busca todos os documentos compartilhados com o usuário atual
-   * @returns {Promise} Promessa com lista de documentos compartilhados
+   * Atualiza permissão de um colaborador em um documento
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário
+   * @param {String} permission - Nova permissão (read/write)
+   * @returns {Promise} Promessa com resultado da operação
    */
-  async getSharedWithMeDocuments() {
+  async updateCollaboratorPermission(documentId, userId, permission) {
     try {
-      const response = await this.api.get('/api/share/shared-with-me');
+      const response = await this.api.put(`/api/share/${documentId}/collaborators/${userId}`, {
+        permission
+      });
       return response;
     } catch (error) {
-      console.error('Erro ao buscar documentos compartilhados comigo:', error);
+      console.error("Erro ao atualizar permissão do colaborador:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Remove um colaborador de um documento
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário a ser removido
+   * @returns {Promise} Promessa com resultado da operação
+   */
+  async removeCollaborator(documentId, userId) {
+    try {
+      const response = await this.api.delete(`/api/share/${documentId}/collaborators/${userId}`);
+      return response;
+    } catch (error) {
+      console.error("Erro ao remover colaborador:", error);
       throw error;
     }
   }

@@ -18,6 +18,7 @@ import { styles } from "./styles/DocumentListScreen.style";
 // Components
 import DocumentItem from "../../components/document/DocumentItem";
 import Button from "../../components/common/Button";
+import DocumentOptionsBottomSheet from "../../components/document/DocumentOptionsBottomSheet";
 
 // Actions
 import {
@@ -36,6 +37,7 @@ const DocumentListScreen = ({ navigation }) => {
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // 'all', 'my', 'shared'
   const [filteredDocuments, setFilteredDocuments] = useState([]);
+  const [showOptionsBottomSheet, setShowOptionsBottomSheet] = useState(false);
 
   // Efeito para filtrar documentos baseado na busca e aba ativa
   useEffect(() => {
@@ -96,8 +98,26 @@ const DocumentListScreen = ({ navigation }) => {
     }
   };
 
+  // Abrir o menu de opções
+  const handleOpenOptions = () => {
+    setShowOptionsBottomSheet(true);
+  };
+
+  // Fechar o menu de opções
+  const handleCloseOptions = () => {
+    setShowOptionsBottomSheet(false);
+  };
+
+  // Navegar para o scanner de QR Code
+  const handleScanQRCode = () => {
+    setShowOptionsBottomSheet(false);
+    navigation.navigate("QRCodeScannerScreen");
+  };
+
   // Função para criar novo documento
   const handleCreateDocument = async () => {
+    setShowOptionsBottomSheet(false);
+
     try {
       // Use token from the auth state that was already retrieved at component level
       if (!user) {
@@ -245,21 +265,13 @@ const DocumentListScreen = ({ navigation }) => {
         {activeTab !== "shared" && (
           <Button
             title="Criar novo documento"
-            onPress={handleCreateDocument}
+            onPress={handleOpenOptions}
             style={styles.createButton}
           />
         )}
       </View>
     );
   };
-
-  // Adicionar log para debug
-  console.log("Estado atual:", {
-    documentsCount: documents?.length || 0,
-    filteredDocumentsCount: filteredDocuments?.length || 0,
-    loading,
-    activeTab,
-  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -268,12 +280,6 @@ const DocumentListScreen = ({ navigation }) => {
         {/* Cabeçalho */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Meus Documentos</Text>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleCreateDocument}
-          >
-            <Feather name="plus" size={24} color="#2196f3" />
-          </TouchableOpacity>
         </View>
 
         {/* Campo de busca */}
@@ -369,6 +375,21 @@ const DocumentListScreen = ({ navigation }) => {
           ListEmptyComponent={renderEmptyComponent}
           showsVerticalScrollIndicator={false}
         />
+
+        {/* BottomSheet de opções */}
+        <DocumentOptionsBottomSheet
+          visible={showOptionsBottomSheet}
+          onClose={handleCloseOptions}
+          onCreateNew={handleCreateDocument}
+          onScanQR={handleScanQRCode}
+        />
+
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={handleOpenOptions}
+        >
+          <Feather name="plus" size={24} color="#ffffff" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

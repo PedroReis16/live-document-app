@@ -1,9 +1,21 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import ShareService from '../services/share';
 
-// Async thunks
+// Async Thunks
+export const shareWithUser = createAsyncThunk(
+  'share/shareWithUser',
+  async ({ documentId, email, permission }, { rejectWithValue }) => {
+    try {
+      const response = await ShareService.shareWithUser(documentId, email, permission);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Erro ao compartilhar documento');
+    }
+  }
+);
+
 export const generateShareCode = createAsyncThunk(
-  'share/generateCode',
+  'share/generateShareCode',
   async (documentId, { rejectWithValue }) => {
     try {
       const response = await ShareService.generateShareCode(documentId);
@@ -14,14 +26,62 @@ export const generateShareCode = createAsyncThunk(
   }
 );
 
-export const joinSharedDocument = createAsyncThunk(
-  'share/joinDocument',
+export const joinWithCode = createAsyncThunk(
+  'share/joinWithCode',
   async (shareCode, { rejectWithValue }) => {
     try {
       const response = await ShareService.joinWithCode(shareCode);
       return response;
     } catch (error) {
-      return rejectWithValue(error.message || 'Código de compartilhamento inválido ou expirado');
+      return rejectWithValue(error.message || 'Código inválido ou expirado');
+    }
+  }
+);
+
+export const generateShareLink = createAsyncThunk(
+  'share/generateShareLink',
+  async ({ documentId, options }, { rejectWithValue }) => {
+    try {
+      const response = await ShareService.generateShareLink(documentId, options);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Erro ao gerar link de compartilhamento');
+    }
+  }
+);
+
+export const joinByShareToken = createAsyncThunk(
+  'share/joinByShareToken',
+  async (shareToken, { rejectWithValue }) => {
+    try {
+      const response = await ShareService.joinByShareToken(shareToken);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Token inválido ou expirado');
+    }
+  }
+);
+
+export const processDeepLinkToken = createAsyncThunk(
+  'share/processDeepLinkToken',
+  async (shareToken, { dispatch, rejectWithValue }) => {
+    try {
+      // Verificar se o usuário está autenticado antes de processar o token
+      // Isso é feito no AppNavigator que só chama essa action quando isAuthenticated = true
+
+      // Usar o token para entrar no documento
+      const response = await dispatch(joinByShareToken(shareToken)).unwrap();
+      
+      // Limpar o token após o processamento
+      dispatch(clearDeepLinkToken());
+      
+      return {
+        documentId: response.documentId,
+        permission: response.permission
+      };
+    } catch (error) {
+      dispatch(clearDeepLinkToken());
+      return rejectWithValue(error.message || 'Erro ao processar link de compartilhamento');
     }
   }
 );
@@ -30,10 +90,10 @@ export const fetchCollaborators = createAsyncThunk(
   'share/fetchCollaborators',
   async (documentId, { rejectWithValue }) => {
     try {
-      const collaborators = await ShareService.getCollaborators(documentId);
-      return { documentId, collaborators };
+      const response = await ShareService.getCollaborators(documentId);
+      return response;
     } catch (error) {
-      return rejectWithValue(error.message || 'Erro ao buscar colaboradores');
+      return rejectWithValue(error.message || 'Erro ao carregar colaboradores');
     }
   }
 );
@@ -42,8 +102,12 @@ export const updatePermission = createAsyncThunk(
   'share/updatePermission',
   async ({ documentId, userId, permission }, { rejectWithValue }) => {
     try {
-      await ShareService.updateCollaboratorPermission(documentId, userId, permission);
-      return { userId, permission };
+      const response = await ShareService.updateCollaboratorPermission(
+        documentId, 
+        userId, 
+        permission
+      );
+      return { userId, permission, ...response };
     } catch (error) {
       return rejectWithValue(error.message || 'Erro ao atualizar permissão');
     }
@@ -63,55 +127,46 @@ export const removeCollaborator = createAsyncThunk(
 );
 
 const shareSlice = createSlice({
-  name: "share",
+  name: 'share',
   initialState: {
-    shareCode: null,
-    shareCodeExpiration: null,
-    collaborators: [],
     loading: false,
     error: null,
-    currentDocumentId: null,
+    shareCode: null,
+    shareLink: null,
+    shareLinkUrl: null,
+    deepLinkToken: null,
+    collaborators: [],
   },
   reducers: {
-    setShareCode: (state, action) => {
-      state.shareCode = action.payload.code;
-      state.shareCodeExpiration = action.payload.expiration;
-    },
-    setCollaborators: (state, action) => {
-      state.collaborators = action.payload;
-    },
-    addCollaborator: (state, action) => {
-      // Verificar se já existe
-      const exists = state.collaborators.some(c => c.id === action.payload.id);
-      if (!exists) {
-        state.collaborators.push(action.payload);
-      }
-    },
-    removeCollaborator: (state, action) => {
-      state.collaborators = state.collaborators.filter(
-        (c) => c.id !== action.payload
-      );
-    },
-    updateCollaboratorStatus: (state, action) => {
-      const { userId, status } = action.payload;
-      const collaborator = state.collaborators.find((c) => c.id === userId);
-      if (collaborator) {
-        collaborator.status = status;
-      }
-    },
-    setCurrentDocument: (state, action) => {
-      state.currentDocumentId = action.payload;
-    },
-    clearShareData: (state) => {
-      state.shareCode = null;
-      state.shareCodeExpiration = null;
-      state.collaborators = [];
-      state.currentDocumentId = null;
+    resetShareState: (state) => {
+      state.loading = false;
       state.error = null;
+      state.shareCode = null;
+      state.shareLink = null;
+      state.shareLinkUrl = null;
     },
+    clearDeepLinkToken: (state) => {
+      state.deepLinkToken = null;
+    },
+    setDeepLinkToken: (state, action) => {
+      state.deepLinkToken = action.payload;
+    }
   },
   extraReducers: (builder) => {
     builder
+      // Share with user
+      .addCase(shareWithUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(shareWithUser.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(shareWithUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
       // Generate share code
       .addCase(generateShareCode.pending, (state) => {
         state.loading = true;
@@ -119,62 +174,103 @@ const shareSlice = createSlice({
       })
       .addCase(generateShareCode.fulfilled, (state, action) => {
         state.loading = false;
-        state.shareCode = action.payload.shareCode;
-        state.shareCodeExpiration = action.payload.expiration;
+        state.shareCode = action.payload.code;
       })
       .addCase(generateShareCode.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       
-      // Join shared document
-      .addCase(joinSharedDocument.pending, (state) => {
+      // Join with code
+      .addCase(joinWithCode.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(joinSharedDocument.fulfilled, (state, action) => {
+      .addCase(joinWithCode.fulfilled, (state) => {
         state.loading = false;
-        state.currentDocumentId = action.payload.documentId;
+        state.shareCode = null;
       })
-      .addCase(joinSharedDocument.rejected, (state, action) => {
+      .addCase(joinWithCode.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       
-      // Fetch collaborators
+      // Generate share link
+      .addCase(generateShareLink.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(generateShareLink.fulfilled, (state, action) => {
+        state.loading = false;
+        state.shareLink = action.payload.shareToken;
+        state.shareLinkUrl = action.payload.shareUrl;
+      })
+      .addCase(generateShareLink.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Join by share token
+      .addCase(joinByShareToken.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(joinByShareToken.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(joinByShareToken.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Process deep link token
+      .addCase(processDeepLinkToken.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(processDeepLinkToken.fulfilled, (state) => {
+        state.loading = false;
+        state.deepLinkToken = null;
+      })
+      .addCase(processDeepLinkToken.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.deepLinkToken = null;
+      })
+      
+      // Fetch Collaborators
       .addCase(fetchCollaborators.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchCollaborators.fulfilled, (state, action) => {
         state.loading = false;
-        state.collaborators = action.payload.collaborators;
-        state.currentDocumentId = action.payload.documentId;
+        state.collaborators = action.payload;
       })
       .addCase(fetchCollaborators.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       
-      // Update permissions
+      // Update Collaborator Permission
       .addCase(updatePermission.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(updatePermission.fulfilled, (state, action) => {
         state.loading = false;
-        const { userId, permission } = action.payload;
-        const collaborator = state.collaborators.find(c => c.id === userId);
-        if (collaborator) {
-          collaborator.permission = permission;
-        }
+        state.collaborators = state.collaborators.map(collaborator => 
+          collaborator.id === action.payload.userId 
+            ? { ...collaborator, permission: action.payload.permission }
+            : collaborator
+        );
       })
       .addCase(updatePermission.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       
-      // Remove collaborator
+      // Remove Collaborator
       .addCase(removeCollaborator.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -182,24 +278,16 @@ const shareSlice = createSlice({
       .addCase(removeCollaborator.fulfilled, (state, action) => {
         state.loading = false;
         state.collaborators = state.collaborators.filter(
-          c => c.id !== action.payload.userId
+          collaborator => collaborator.id !== action.payload.userId
         );
       })
       .addCase(removeCollaborator.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
-  },
+  }
 });
 
-export const { 
-  setShareCode, 
-  setCollaborators, 
-  addCollaborator, 
-  removeCollaborator: removeCollaboratorAction, 
-  updateCollaboratorStatus,
-  setCurrentDocument,
-  clearShareData
-} = shareSlice.actions;
+export const { resetShareState, clearDeepLinkToken, setDeepLinkToken } = shareSlice.actions;
 
 export default shareSlice;

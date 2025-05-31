@@ -37,14 +37,14 @@ const ApiService = {
   exportDocument: documentService.exportDocument.bind(documentService),
   
   // Métodos de compartilhamento
-  shareDocument: shareService.shareDocument.bind(shareService),
-  revokeDocumentAccess: shareService.revokeDocumentAccess.bind(shareService),
-  updateUserPermission: shareService.updateUserPermission.bind(shareService),
-  getDocumentShares: shareService.getDocumentShares.bind(shareService),
-  createPublicLink: shareService.createPublicLink.bind(shareService),
-  revokePublicLink: shareService.revokePublicLink.bind(shareService),
-  joinSharedDocument: shareService.joinSharedDocument.bind(shareService),
-  getSharedWithMeDocuments: shareService.getSharedWithMeDocuments.bind(shareService),
+  shareWithUser: shareService.shareWithUser.bind(shareService),
+  revokeAccess: shareService.revokeAccess.bind(shareService),
+  updatePermission: shareService.updatePermission.bind(shareService),
+  getShares: shareService.getShares.bind(shareService),
+  generateShareLink: shareService.generateShareLink.bind(shareService),
+  joinWithCode: shareService.joinWithCode.bind(shareService),
+  joinByShareToken: shareService.joinByShareToken.bind(shareService),
+  getSharedWithMeDocuments: shareService.getSharedWithMeDocuments?.bind(shareService),
 };
 
 // Exporta os serviços individuais para uso direto
