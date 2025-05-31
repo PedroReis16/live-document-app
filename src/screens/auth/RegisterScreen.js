@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
@@ -16,16 +15,10 @@ import {
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { Feather } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 
 // Components
 import Input from "../../components/common/Input";
 import Button from "../../components/common/Button";
-
-// Services
-import ApiService from "../../services/api";
-import StorageService from "../../services/storage";
-import SocketService from "../../services/socket";
 
 // Actions
 import { register } from "../../store/authSlice";
@@ -72,39 +65,6 @@ const RegisterScreen = ({ navigation }) => {
   useEffect(() => {
     setIsFormValid(checkFormValidity());
   }, [username, email, password, confirmPassword, acceptTerms]);
-
-  // Seleção de avatar
-  const handleSelectAvatar = async () => {
-    try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== "granted") {
-        Alert.alert(
-          "Permissão negada",
-          "Precisamos da permissão para acessar sua galeria de fotos."
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: "Images",
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setAvatar(result.assets[0]);
-      }
-    } catch (error) {
-      console.error("Erro ao selecionar avatar:", error);
-      Alert.alert(
-        "Erro",
-        "Não foi possível selecionar a imagem. Tente novamente."
-      );
-    }
-  };
 
   // Validação do formulário
   const validateForm = () => {
@@ -223,21 +183,6 @@ const RegisterScreen = ({ navigation }) => {
                 Preencha os dados abaixo para criar sua conta
               </Text>
             </View>
-
-            {/* Avatar */}
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={handleSelectAvatar}
-            >
-              {avatar ? (
-                <Image source={{ uri: avatar.uri }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Feather name="camera" size={32} color="#999" />
-                  <Text style={styles.avatarText}>Adicionar foto</Text>
-                </View>
-              )}
-            </TouchableOpacity>
 
             {/* Formulário de Cadastro */}
             <View style={styles.form}>
@@ -404,32 +349,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     textAlign: "center",
-  },
-  avatarContainer: {
-    alignSelf: "center",
-    marginBottom: 24,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#e0e0e0",
-  },
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderStyle: "dashed",
-  },
-  avatarText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: "#999",
   },
   form: {
     width: "100%",
