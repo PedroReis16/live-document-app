@@ -6,8 +6,7 @@ import { styles } from "./styles/TabNavigator.style";
 const TabNavigator = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'collaborators', icon: "users", label: "Colaboradores" },
-    { id: 'qrcode', icon: "share-2", label: "QR Code" },
-    { id: 'scan', icon: "camera", label: "Escanear" }
+    { id: 'qrcode', icon: "share-2", label: "QR Code" }
   ];
 
   return (
