@@ -1,34 +1,35 @@
-import React from 'react';
+import React from "react";
 import {
   TouchableOpacity,
   Text,
   StyleSheet,
   ActivityIndicator,
-  View
-} from 'react-native';
+  View,
+} from "react-native";
+import { styles } from "./styles/Button.style";
 
 // Botão customizado com estilos consistentes
 const Button = ({
   title,
   onPress,
-  variant = 'primary',
+  variant = "primary",
   disabled = false,
   loading = false,
   style,
   textStyle,
   icon,
-  iconPosition = 'left'
+  iconPosition = "left",
 }) => {
   // Determine button style based on variant
   const getButtonStyle = () => {
     switch (variant) {
-      case 'secondary':
+      case "secondary":
         return styles.secondaryButton;
-      case 'danger':
+      case "danger":
         return styles.dangerButton;
-      case 'outline':
+      case "outline":
         return styles.outlineButton;
-      case 'confirm':
+      case "confirm":
         return styles.primaryButton;
       default:
         return styles.primaryButton;
@@ -38,7 +39,7 @@ const Button = ({
   // Determine text style based on variant
   const getTextStyle = () => {
     switch (variant) {
-      case 'outline':
+      case "outline":
         return styles.outlineText;
       default:
         return styles.buttonText;
@@ -51,7 +52,7 @@ const Button = ({
         styles.button,
         getButtonStyle(),
         disabled && styles.disabledButton,
-        style
+        style,
       ]}
       onPress={onPress}
       disabled={disabled || loading}
@@ -59,17 +60,17 @@ const Button = ({
     >
       <View style={styles.contentContainer}>
         {loading ? (
-          <ActivityIndicator 
-            color={variant === 'outline' ? '#2196f3' : '#fff'} 
-            size="small" 
+          <ActivityIndicator
+            color={variant === "outline" ? "#2196f3" : "#fff"}
+            size="small"
           />
         ) : (
           <>
-            {icon && iconPosition === 'left' && (
+            {icon && iconPosition === "left" && (
               <View style={styles.iconLeft}>{icon}</View>
             )}
             <Text style={[getTextStyle(), textStyle]}>{title}</Text>
-            {icon && iconPosition === 'right' && (
+            {icon && iconPosition === "right" && (
               <View style={styles.iconRight}>{icon}</View>
             )}
           </>
@@ -78,66 +79,5 @@ const Button = ({
     </TouchableOpacity>
   );
 };
-
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#2196f3',
-  },
-  secondaryButton: {
-    backgroundColor: '#9c27b0',
-  },
-  dangerButton: {
-    backgroundColor: '#f44336',
-  },
-  outlineButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#2196f3',
-  },
-  confirmButton: {
-    backgroundColor: '#4caf50', // Verde para botões de confirmação
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  disabledButton: {
-    backgroundColor: '#e0e0e0',
-    borderColor: '#e0e0e0',
-    shadowColor: 'transparent',
-    elevation: 0,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  outlineText: {
-    color: '#2196f3',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  iconLeft: {
-    marginRight: 8,
-  },
-  iconRight: {
-    marginLeft: 8,
-  },
-});
 
 export default Button;
