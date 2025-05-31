@@ -48,6 +48,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
 
   return (
     <TouchableOpacity
+      key={document.id} 
       style={styles.container}
       onPress={handlePress}
       onLongPress={() => onLongPress && onLongPress(document)}
@@ -104,6 +105,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
       
       <View style={styles.actionsContainer}>
         <TouchableOpacity
+          key={`share-${document.id}`} // Add unique key
           style={styles.actionButton}
           onPress={handleShare}
         >
@@ -112,6 +114,7 @@ const DocumentItem = ({ document, onLongPress, onDelete, onShare }) => {
         
         {!document.shared && (
           <TouchableOpacity
+            key={`delete-${document.id}`} // Add unique key
             style={styles.actionButton}
             onPress={handleDelete}
           >
