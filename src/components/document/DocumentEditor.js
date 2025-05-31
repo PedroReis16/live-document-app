@@ -295,72 +295,12 @@ const DocumentEditor = ({
   
   // Exportar documento para arquivo de texto
   const exportDocument = async () => {
-    try {
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert(
-          'Erro',
-          'O compartilhamento não está disponível neste dispositivo'
-        );
-        return;
-      }
-      
-      const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-      
-      // Criar conteúdo do arquivo
-      const fileContent = `${title}\n\n${content}`;
-      
-      // Escrever no arquivo
-      await FileSystem.writeAsStringAsync(fileUri, fileContent);
-      
-      // Compartilhar arquivo
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/plain',
-        dialogTitle: 'Exportar documento',
-        UTI: 'public.plain-text'
-      });
-    } catch (error) {
-      console.error('Erro ao exportar documento:', error);
-      Alert.alert(
-        'Erro ao exportar',
-        'Não foi possível exportar o documento. Tente novamente.'
-      );
-    }
+    
   };
   
   // Importar documento de arquivo de texto
   const importDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'text/plain',
-        copyToCacheDirectory: true
-      });
-      
-      if (result.type === 'success') {
-        // Ler conteúdo do arquivo
-        const fileContent = await FileSystem.readAsStringAsync(result.uri);
-        
-        // Separar título e conteúdo (assume que primeira linha é o título)
-        const lines = fileContent.split('\n');
-        const importedTitle = lines[0] || '';
-        const importedContent = lines.slice(2).join('\n');
-        
-        // Atualizar formulário
-        setTitle(importedTitle);
-        setContent(importedContent);
-        
-        // Salvar alterações
-        if (document?.id) {
-          handleSave();
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao importar documento:', error);
-      Alert.alert(
-        'Erro ao importar',
-        'Não foi possível importar o arquivo. Tente novamente.'
-      );
-    }
+    
   };
   
   return (
@@ -415,33 +355,7 @@ const DocumentEditor = ({
         editable={!readOnly}
       />
       
-      <View style={styles.footer}>
-        {!readOnly && (
-          <Button 
-            title="Salvar" 
-            onPress={handleSave} 
-            loading={saving}
-            disabled={saving}
-            style={styles.button}
-          />
-        )}
-        
-        <Button
-          title="Exportar" 
-          onPress={exportDocument}
-          style={styles.button}
-          type="outline"
-        />
-        
-        {!readOnly && (
-          <Button
-            title="Importar" 
-            onPress={importDocument}
-            style={styles.button}
-            type="outline"
-          />
-        )}
-      </View>
+      
     </KeyboardAvoidingView>
   );
 };
