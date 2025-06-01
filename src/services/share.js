@@ -191,6 +191,138 @@ class ShareService {
       throw error;
     }
   }
+
+  /**
+   * Obtém a permissão de um usuário em um documento específico
+   * @param {String} documentId - ID do documento
+   * @param {String} userId - ID do usuário
+   * @returns {Promise} Promessa com a permissão do usuário no documento
+   */
+  async getUserDocumentPermission(documentId, userId) {
+    try {
+      // Primeiro, verificamos se o documento tem compartilhamentos para este usuário
+      const response = await this.api.get(`/api/share/${documentId}/permission/${userId}`);
+      
+      // Se a resposta tiver um campo permission, esse é o nível de permissão do usuário
+      if (response && response.data && response.data.permission) {
+        return { permission: response.data.permission };
+      }
+      
+      // Se não houver permissão específica, assumir permissão de leitura
+      return { permission: 'read' };
+    } catch (error) {
+      console.error(`Erro ao verificar permissão do usuário ${userId} no documento ${documentId}:`, error);
+      // Em caso de erro, assumimos que o usuário não tem permissão
+      return { permission: 'read' };
+    }
+  }
+
+  // Métodos para configurar listeners de colaboração em tempo real
+  setupCollaborationListeners(documentId, handlers) {
+    // Importa o serviço de socket se ainda não estiver disponível
+    if (!this.socketService) {
+      import('./socket').then(module => {
+        this.socketService = module.default;
+        this._setupListenersInternal(documentId, handlers);
+      });
+    } else {
+      this._setupListenersInternal(documentId, handlers);
+    }
+  }
+
+  // Método interno para configurar os listeners após garantir que o socketService existe
+  _setupListenersInternal(documentId, handlers) {
+    console.log(`Configurando listeners de colaboração para documento ${documentId}`);
+    
+    // Armazena os removedores de listeners para poder limpar depois
+    this.listenerCleanups = [];
+    
+    // Configura os listeners de acordo com as handlers fornecidas
+    if (handlers.onDocumentChange) {
+      this.listenerCleanups.push(
+        this.socketService.onDocumentChange(data => {
+          if (data.documentId === documentId) {
+            handlers.onDocumentChange(data.changes);
+          }
+        })
+      );
+    }
+    
+    if (handlers.onUserTyping) {
+      this.listenerCleanups.push(
+        this.socketService.onUserTyping((docId, user, isTyping) => {
+          if (docId === documentId) {
+            handlers.onUserTyping(user, isTyping);
+          }
+        })
+      );
+    }
+    
+    if (handlers.onCollaboratorJoined) {
+      this.listenerCleanups.push(
+        this.socketService.onCollaboratorJoined((docId, userData) => {
+          if (docId === documentId) {
+            handlers.onCollaboratorJoined(userData);
+          }
+        })
+      );
+    }
+    
+    if (handlers.onCollaboratorLeft) {
+      this.listenerCleanups.push(
+        this.socketService.onCollaboratorLeft((docId, userData) => {
+          if (docId === documentId) {
+            handlers.onCollaboratorLeft(userData);
+          }
+        })
+      );
+    }
+
+    if (handlers.onCursorPosition) {
+      this.listenerCleanups.push(
+        this.socketService.onCursorPosition((docId, user, position) => {
+          if (docId === documentId) {
+            handlers.onCursorPosition(user, position);
+          }
+        })
+      );
+    }
+    
+    // Notifica que estamos entrando no documento para colaboração
+    this.socketService.joinDocument(documentId)
+      .then(connectedUsers => {
+        if (handlers.onConnected) {
+          handlers.onConnected(connectedUsers);
+        }
+      })
+      .catch(error => {
+        console.error("Erro ao entrar no documento para colaboração:", error);
+        if (handlers.onError) {
+          handlers.onError(error);
+        }
+      });
+  }
+
+  removeCollaborationListeners() {
+    console.log("Removendo listeners de colaboração");
+    
+    // Executa todas as funções de limpeza armazenadas
+    if (this.listenerCleanups && this.listenerCleanups.length) {
+      this.listenerCleanups.forEach(cleanup => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+      
+      // Limpa o array após remover os listeners
+      this.listenerCleanups = [];
+    }
+    
+    // Se estiver em um documento, sai dele
+    if (this.socketService && this.socketService.currentDocument) {
+      this.socketService.leaveDocument(this.socketService.currentDocument);
+    }
+  }
 }
 
 export default new ShareService();

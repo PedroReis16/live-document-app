@@ -77,8 +77,8 @@ const DocumentViewScreen = ({ route, navigation }) => {
   // Função para editar o documento
   const handleEdit = () => {
     navigation.navigate("DocumentEdit", {
-      documentId: document.id,
-      isSharedDocument: false,
+      documentId: documentId,
+      isSharedDocument: document.isShared,
       docUserId: document.ownerId,
     });
   };

@@ -120,7 +120,7 @@ export const joinCollaboration = createAsyncThunk(
       }
 
       // Configurar listeners para mudanças no documento
-      const unsubscribeChange = SocketService.onDocumentChange((data) => {
+      SocketService.onDocumentChange((data) => {
         if (data.changes) {
           console.log("Recebidas alterações via socket:", data.changes);
           
@@ -136,7 +136,7 @@ export const joinCollaboration = createAsyncThunk(
       });
 
       // Configurar listener para receber o conteúdo inicial do documento
-      const unsubscribeContent = SocketService.onDocumentContent((data) => {
+      SocketService.onDocumentContent((data) => {
         if (data.document) {
           console.log("Conteúdo inicial recebido via socket:", data.document);
           
@@ -158,13 +158,9 @@ export const joinCollaboration = createAsyncThunk(
         }
       });
 
-      // Retornar uma função para limpar os listeners quando não forem mais necessários
-      return {
-        cleanup: () => {
-          unsubscribeChange();
-          unsubscribeContent();
-        }
-      };
+      // Retornar apenas o ID do documento, sem a função de cleanup
+      return { documentId };
+      
     } catch (error) {
       console.error("Erro ao entrar na colaboração:", error);
       return rejectWithValue(error.message || "Erro ao entrar na colaboração");

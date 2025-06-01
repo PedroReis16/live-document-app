@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  Share, // Importação faltante do componente Share
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Feather } from "@expo/vector-icons";
@@ -16,6 +17,7 @@ import {
   joinCollaboration,
   leaveCollaboration,
   createDocument,
+  clearCollaborationState,
 } from "../../store/documentSlice";
 import { fetchCollaborators } from "../../store/shareSlice";
 
@@ -25,23 +27,28 @@ import Button from "../../components/common/Button";
 
 import ShareService from "../../services/share";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { set } from "lodash";
 
 // Chave para salvar documentos no storage local
 const LOCAL_DOCUMENT_KEY_PREFIX = "local_document_";
 
 const DocumentEditScreen = ({ route, navigation }) => {
-  const {
-    documentId,
-    docUserId,
-    isNewDocument,
-    isSharedDocument,
-    documentData,
-  } = route.params || {};
+  const { documentId = null, documentData = null } = route.params || {};
   const dispatch = useDispatch();
 
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [collaborationMode, setCollaborationMode] = useState(false);
   const [creatingServerDoc, setCreatingServerDoc] = useState(false);
+  const [isSharedDocument, setIsSharedDocument] = useState(false);
+  const [userPermission, setUserPermission] = useState(null);
+  const [documentOwner, setDocumentOwner] = useState(null);
+  const [isDocumentLoaded, setIsDocumentLoaded] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false); // Estado faltante
+
+  // Adicionar refs para controlar ciclo de vida
+  const hasJoinedCollaboration = useRef(false);
+  const isScreenMounted = useRef(true);
+  const currentDocIdRef = useRef(null);
 
   const { currentDocument, loading, error, collaborationActive } = useSelector(
     (state) => state.documents
@@ -49,19 +56,158 @@ const DocumentEditScreen = ({ route, navigation }) => {
   const { user } = useSelector((state) => state.auth);
   const { collaborators } = useSelector((state) => state.share);
 
+  // Garantir limpeza ao desmontar o componente
   useEffect(() => {
-    if (documentId) {
-      if (isNewDocument && documentData) {
+    isScreenMounted.current = true;
+    currentDocIdRef.current = documentId;
+
+    // Limpeza ao desmontar
+    return () => {
+      isScreenMounted.current = false;
+      if (collaborationActive && currentDocIdRef.current) {
+        dispatch(leaveCollaboration(currentDocIdRef.current));
+        ShareService.removeCollaborationListeners();
+        dispatch(clearCollaborationState());
+      }
+      hasJoinedCollaboration.current = false;
+    };
+  }, []);
+
+  // Carregar o documento quando a tela é montada
+  useEffect(() => {
+    if (documentId && isScreenMounted.current) {
+      if (documentData) {
+        // Se temos dados do documento passados como parâmetro
         dispatch({
           type: "documents/setCurrentDocument",
-          payload: route.params.documentData,
+          payload: documentData,
         });
+
+        // Verificar se o documento é compartilhado após ter o documento carregado
+        checkDocumentShareStatus(documentId);
       } else {
-        dispatch(fetchDocumentById(documentId));
+        // Buscar o documento do servidor
+        dispatch(fetchDocumentById(documentId))
+          .unwrap()
+          .then(() => {
+            if (isScreenMounted.current) {
+              // Verificar se o documento é compartilhado após ter o documento carregado
+              checkDocumentShareStatus(documentId);
+            }
+          });
       }
     }
-  }, [documentId, dispatch, route.params]);
+  }, [documentId, dispatch]);
 
+  // Verificar se o documento é compartilhado
+  const checkDocumentShareStatus = async (docId) => {
+    if (!isScreenMounted.current) return;
+
+    try {
+      console.log(
+        "Verificando status de compartilhamento para o documento:",
+        docId
+      );
+      // Consulta a API de compartilhamento para verificar se o documento tem compartilhamentos
+      const response = await ShareService.getShares(docId);
+
+      if (!isScreenMounted.current) return;
+
+      console.log("Compartilhamentos encontrados:", response);
+
+      // Se tiver dados de compartilhamento, então é um documento compartilhado
+      const hasShares = response && response.data && response.data.length > 0;
+      setIsSharedDocument(hasShares);
+      console.log("Documento é compartilhado:", hasShares);
+
+      if (!currentDocument) return;
+
+      console.log("Documento atual:", currentDocument);
+      console.log("ID do dono do documento:", currentDocument.ownerId);
+      // Buscar informações do owner
+      if (currentDocument && currentDocument.ownerId) {
+        setDocumentOwner(currentDocument.ownerId);
+      }
+
+      // Determinar permissão do usuário
+      await determineUserPermission(docId);
+      console.log("As permissões do usuário foram definidas:", userPermission);
+
+      if (!isScreenMounted.current) {
+        console.log("A tela ainda não esta montada, retornando...");
+        return;
+      }
+
+      setIsDocumentLoaded(true);
+
+      // Se for compartilhado, buscar colaboradores e ativar modo de colaboração
+      if (hasShares) {
+        console.log("Documento compartilhado, ativando modo de colaboração");
+        setCollaborationMode(true);
+        console.log("Buscando colaboradores para o documento:", docId);
+        dispatch(fetchCollaborators(docId));
+      }
+    } catch (error) {
+      console.error("Erro ao verificar status de compartilhamento:", error);
+      // Se der erro na verificação, assumimos que não é compartilhado
+      if (isScreenMounted.current) {
+        setIsSharedDocument(false);
+        setIsDocumentLoaded(true);
+      }
+    }
+  };
+
+  // Determinar a permissão que o usuário atual tem no documento
+  const determineUserPermission = async (docId) => {
+    console.log(
+      "Determinando as permissões do usuário para o documento:",
+      docId
+    );
+    console.log("O usuário atual é:", user);
+    console.log("O id do usuário é: ", user.id);
+
+    if (!currentDocument || !user) {
+      setUserPermission("read");
+      console.log("O usuário foi definido como leitor por padrão");
+      return;
+    }
+
+    // Se for owner (comparando ID do dono com ID do usuário atual)
+    if (
+      currentDocument.ownerId &&
+      currentDocument.ownerId === (user.id || user.data._id)
+    ) {
+      setUserPermission("owner");
+      console.log("O usuário é o dono do documento");
+      return;
+    }
+
+    // Buscar permissão específica deste usuário para este documento
+    try {
+      var userPermissions = await ShareService.getUserDocumentPermission(
+        docId,
+        user.id|| user.data._id
+      );
+      console.log("Permissões do usuário obtidas:", userPermissions);
+      if (userPermissions && userPermissions.permission) {
+        setUserPermission(userPermissions.permission);
+        console.log(
+          "Permissão do usuário definida:",
+          userPermissions.permission
+        );
+      } else {
+        setUserPermission("read");
+        console.log(
+          "Permissão do usuário não encontrada, definido como 'read'"
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao buscar permissão do usuário:", error);
+      setUserPermission("read");
+    }
+  };
+
+  // Atualizar a barra de navegação com informações do documento
   useEffect(() => {
     if (currentDocument) {
       navigation.setOptions({
@@ -85,52 +231,78 @@ const DocumentEditScreen = ({ route, navigation }) => {
     }
   }, [currentDocument, navigation, showCollaborators, isSharedDocument]);
 
+  // Ativar modo de colaboração quando o documento for identificado como compartilhado
   useEffect(() => {
-    if (isSharedDocument && currentDocument) {
+    if (
+      isSharedDocument &&
+      currentDocument &&
+      isDocumentLoaded &&
+      isScreenMounted.current
+    ) {
       setCollaborationMode(true);
     }
-  }, [isSharedDocument, currentDocument]);
+  }, [isSharedDocument, currentDocument, isDocumentLoaded]);
 
+  // Configurar ouvintes de colaboração quando o modo de colaboração estiver ativo
   useEffect(() => {
-    if (collaborationMode && currentDocument && !collaborationActive) {
+    if (
+      collaborationMode &&
+      currentDocument &&
+      !collaborationActive &&
+      !hasJoinedCollaboration.current
+    ) {
+      hasJoinedCollaboration.current = true;
       dispatch(joinCollaboration(currentDocument.id));
       dispatch(fetchCollaborators(currentDocument.id));
 
       ShareService.setupCollaborationListeners(currentDocument.id, {
         onUserJoined: (data) => {
-          Alert.alert("Colaboração", `${data.user.name} entrou no documento`);
+          if (isScreenMounted.current) {
+            Alert.alert(
+              "Colaboração",
+              `${data.user.name || "Um usuário"} entrou no documento`
+            );
+          }
         },
         onUserLeft: (data) => {
-          Alert.alert("Colaboração", `${data.user.name} saiu do documento`);
+          if (isScreenMounted.current) {
+            Alert.alert(
+              "Colaboração",
+              `${data.user.name || "Um usuário"} saiu do documento`
+            );
+          }
         },
         onPermissionChanged: (data) => {
-          Alert.alert(
-            "Permissões",
-            `Suas permissões foram alteradas para: ${data.permission}`
-          );
+          if (isScreenMounted.current) {
+            Alert.alert(
+              "Permissões",
+              `Suas permissões foram alteradas para: ${data.permission}`
+            );
+          }
         },
       });
     }
 
     return () => {
-      if (collaborationMode && currentDocument && collaborationActive) {
-        dispatch(leaveCollaboration(currentDocument.id));
-        ShareService.removeCollaborationListeners();
-      }
+      // Cleanup será feito no useEffect que gerencia o ciclo de vida do componente
     };
   }, [collaborationMode, currentDocument, collaborationActive, dispatch]);
 
   const handleShare = () => {
-    console.log(documentData);
+    if (!currentDocument || !currentDocument.id) {
+      Alert.alert("Erro", "Não foi possível compartilhar o documento");
+      return;
+    }
 
-    if (docUserId === user?.id) {
+    // Verificar se o usuário atual é o proprietário do documento
+    if (userPermission === "owner") {
       // Se for o dono do documento, navega para a tela de compartilhamento
-      navigation.navigate("Share", { documentId: documentId });
+      navigation.navigate("Share", { documentId: currentDocument.id });
     } else {
       // Se for um documento compartilhado, compartilha um link externo
       Share.share({
-        message: `Confira este documento: "${document.title}"`,
-        url: `app://document/${documentId}`,
+        message: `Confira este documento: "${currentDocument.title}"`,
+        url: `app://document/${currentDocument.id}`,
       });
     }
   };
@@ -190,7 +362,6 @@ const DocumentEditScreen = ({ route, navigation }) => {
             // Redirecionar para o novo documento sem interromper o usuário
             navigation.replace("DocumentEdit", {
               documentId: createdDoc.id,
-              isSharedDocument: false,
             });
           } catch (error) {
             console.error("Erro ao salvar no servidor:", error);
@@ -208,20 +379,13 @@ const DocumentEditScreen = ({ route, navigation }) => {
     }
   };
 
-  const getUserPermission = () => {
-    if (!currentDocument || !user) return null;
-
-    if (currentDocument.owner === user.id) {
-      return "owner";
-    }
-
-    const collaborator = collaborators.find((c) => c.id === user.id);
-    return collaborator?.permission || "read";
-  };
-
+  // Verificar se o usuário pode editar o documento
   const canEdit = () => {
-    const permission = getUserPermission();
-    return permission === "owner" || permission === "write";
+    return (
+      userPermission === "owner" ||
+      userPermission === "write" ||
+      userPermission === "admin"
+    );
   };
 
   if (loading) {
@@ -278,14 +442,14 @@ const DocumentEditScreen = ({ route, navigation }) => {
             <CollaboratorsList
               key={currentDocument.id}
               documentId={currentDocument.id}
-              isOwner={currentDocument.owner === user?.id}
+              isOwner={userPermission === "owner"}
             />
           </View>
         ) : (
           <React.Fragment>
             <DocumentEditor
               document={currentDocument}
-              readOnly={isSharedDocument && !canEdit()}
+              readOnly={!canEdit()}
               collaborationMode={collaborationMode}
               onSave={handleSaveDocument}
             />
