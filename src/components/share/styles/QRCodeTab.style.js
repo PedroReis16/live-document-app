@@ -77,4 +77,57 @@ export const styles = StyleSheet.create({
   linkButton: {
     marginHorizontal: 5,
   },
+  // Estilos para a área de permissões
+  permissionsContainer: {
+    width: "100%",
+    marginVertical: 20,
+  },
+  permissionTitle: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  permissionOptions: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 20,
+  },
+  permissionOption: {
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    minWidth: 80,
+  },
+  selectedPermission: {
+    borderColor: "#2196f3",
+    backgroundColor: "rgba(33, 150, 243, 0.1)",
+  },
+  permissionLabel: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
+  },
+  selectedPermissionLabel: {
+    color: "#2196f3",
+    fontWeight: "600",
+  },
+  // Estilos para o container de novo link
+  newLinkContainer: {
+    width: "100%",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 15,
+  },
+  newLinkTitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 16,
+  },
+  generateNewButton: {
+    marginTop: 16,
+  },
 });

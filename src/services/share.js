@@ -129,6 +129,8 @@ class ShareService {
    */
   async joinByShareToken(shareToken) {
     try {
+      console.log(shareToken);
+
       const response = await this.api.post('/api/share/join-by-token', { shareToken });
       return response;
     } catch (error) {

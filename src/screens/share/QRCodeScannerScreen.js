@@ -38,7 +38,7 @@ const QRCodeScannerScreen = ({ navigation }) => {
 
     try {
       // Verificar se o URL é do nosso aplicativo
-      if (data.includes("document/share")) {
+      if (data.includes("com/share")) {
         // Extrair o token do link
         const token = data.split("/").pop();
 
@@ -51,27 +51,9 @@ const QRCodeScannerScreen = ({ navigation }) => {
         }
       } else {
         Alert.alert(
-          "Link externo",
-          "Este QR Code não parece ser do Document App. Deseja abrir este link?",
-          [
-            {
-              text: "Cancelar",
-              style: "cancel",
-              onPress: () => setScanned(false),
-            },
-            {
-              text: "Abrir",
-              onPress: async () => {
-                try {
-                  await Linking.openURL(data);
-                  navigation.goBack();
-                } catch (error) {
-                  Alert.alert("Erro", "Não foi possível abrir este link.");
-                  setScanned(false);
-                }
-              },
-            },
-          ]
+          "Atenção",
+          "Este QR Code não é válido para o aplicativo Document. Por favor, verifique o código ou entre em contato com o remetente.",
+          [{ text: "OK", onPress: () => setScanned(false) }]
         );
       }
     } catch (error) {
@@ -124,37 +106,9 @@ const QRCodeScannerScreen = ({ navigation }) => {
       <BarCodeScanner
         onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
         style={StyleSheet.absoluteFillObject}
-        barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
-        flashMode={
-          flashOn
-            ? BarCodeScanner.Constants.FlashMode.torch
-            : BarCodeScanner.Constants.FlashMode.off
-        }
       />
 
       <View style={styles.overlay}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Feather name="x" size={24} color="#fff" />
-          </TouchableOpacity>
-
-          <Text style={styles.title}>Escanear QR Code</Text>
-
-          <TouchableOpacity
-            style={styles.flashButton}
-            onPress={() => setFlashOn(!flashOn)}
-          >
-            <Feather
-              name={flashOn ? "zap-off" : "zap"}
-              size={24}
-              color="#fff"
-            />
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.scanWindow}>
           <View style={styles.scanCornerTopLeft} />
           <View style={styles.scanCornerTopRight} />
@@ -163,7 +117,7 @@ const QRCodeScannerScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Aponte a câmera para um QR code</Text>
+          {/* <Text style={styles.footerText}>Aponte a câmera para um QR code</Text> */}
 
           {scanned && (
             <TouchableOpacity

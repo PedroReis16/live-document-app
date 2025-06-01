@@ -4,11 +4,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { styles } from "./styles/ShareScreen.style";
 
 // Redux actions
-import { generateShareLink, shareWithUser } from "../../store/shareSlice";
+import { generateShareLink, shareWithUser, resetShareState, clearAllShareState } from "../../store/shareSlice";
 
 // Componentes
 import TabNavigator from "../../components/share/TabNavigator";
-import EmailShareTab from "../../components/share/EmailShareTab";
 import QRCodeTab from "../../components/share/QRCodeTab";
 import ScannerTab from "../../components/share/ScannerTab";
 import CollaboratorsList from "../../components/document/CollaboratorsList";
@@ -25,6 +24,25 @@ const ShareScreen = ({ route, navigation }) => {
   const { user } = useSelector((state) => state.auth);
   const { currentDocument } = useSelector((state) => state.documents);
 
+  // Resetar completamente o estado quando a tela for desmontada
+  useEffect(() => {
+    return () => {
+      dispatch(clearAllShareState());
+    };
+  }, [dispatch]);
+  
+  // Resetar apenas o estado de link/QRCode quando o documentId mudar
+  useEffect(() => {
+    dispatch(resetShareState());
+  }, [documentId, dispatch]);
+
+  // Resetar estado quando a tab mudar para QRCode
+  useEffect(() => {
+    if (activeTab === "qrcode") {
+      dispatch(resetShareState());
+    }
+  }, [activeTab, dispatch]);
+
   // Atualizar título da tela com nome do documento
   useEffect(() => {
     if (currentDocument) {
@@ -35,7 +53,7 @@ const ShareScreen = ({ route, navigation }) => {
   }, [currentDocument, navigation]);
 
   // Gerar link compartilhável e QR Code
-  const handleGenerateLink = async () => {
+  const handleGenerateLink = async (permission = "read") => {
     if (!documentId) {
       Alert.alert("Erro", "ID do documento não encontrado.");
       return;
@@ -45,7 +63,7 @@ const ShareScreen = ({ route, navigation }) => {
       await dispatch(
         generateShareLink({
           documentId,
-          options: { permission: "read", expiresIn: "7d" },
+          options: { permission, expiresIn: "7d" },
         })
       ).unwrap();
     } catch (error) {

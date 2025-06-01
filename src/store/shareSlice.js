@@ -144,12 +144,23 @@ const shareSlice = createSlice({
       state.shareCode = null;
       state.shareLink = null;
       state.shareLinkUrl = null;
+      // Mantém os colaboradores e deepLinkToken, pois esses não devem ser limpos ao trocar de documento
     },
     clearDeepLinkToken: (state) => {
       state.deepLinkToken = null;
     },
     setDeepLinkToken: (state, action) => {
       state.deepLinkToken = action.payload;
+    },
+    // Adiciona uma nova action para limpar TODOS os estados (usado ao sair completamente da tela)
+    clearAllShareState: (state) => {
+      state.loading = false;
+      state.error = null;
+      state.shareCode = null;
+      state.shareLink = null;
+      state.shareLinkUrl = null;
+      state.deepLinkToken = null;
+      state.collaborators = [];
     }
   },
   extraReducers: (builder) => {
@@ -288,6 +299,6 @@ const shareSlice = createSlice({
   }
 });
 
-export const { resetShareState, clearDeepLinkToken, setDeepLinkToken } = shareSlice.actions;
+export const { resetShareState, clearDeepLinkToken, setDeepLinkToken, clearAllShareState } = shareSlice.actions;
 
 export default shareSlice;
