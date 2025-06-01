@@ -37,22 +37,20 @@ const QRCodeScannerScreen = ({ navigation }) => {
     setScanned(true);
 
     try {
-      // Verificar se o URL é do nosso aplicativo
-      if (data.includes("com/share")) {
-        // Extrair o token do link
-        const token = data.split("/").pop();
-
-        if (token) {
-          // Processar o token
-          await dispatch(processDeepLinkToken(token)).unwrap();
-          navigation.goBack(); // Voltar após processar com sucesso
-        } else {
-          Alert.alert("Erro", "QR Code inválido ou expirado.");
-        }
+      // O QR Code contém diretamente o token, não precisamos extrair de uma URL
+      const token = data.trim();
+      
+      // Validar o formato do token (padrão hexadecimal de pelo menos 16 caracteres)
+      const isValidTokenFormat = /^[0-9a-f]{16,}$/i.test(token);
+      
+      if (isValidTokenFormat) {
+        // Processar o token
+        await dispatch(processDeepLinkToken(token)).unwrap();
+        navigation.goBack(); // Voltar após processar com sucesso
       } else {
         Alert.alert(
-          "Atenção",
-          "Este QR Code não é válido para o aplicativo Document. Por favor, verifique o código ou entre em contato com o remetente.",
+          "Formato Inválido",
+          "O QR Code não contém um token válido. Verifique se o QR Code pertence ao aplicativo Document.",
           [{ text: "OK", onPress: () => setScanned(false) }]
         );
       }

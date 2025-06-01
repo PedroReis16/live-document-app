@@ -44,6 +44,7 @@ export const joinWithCode = createAsyncThunk(
   }
 );
 
+// Generate share link
 export const generateShareLink = createAsyncThunk(
   "share/generateShareLink",
   async ({ documentId, options }, { rejectWithValue }) => {
@@ -52,11 +53,13 @@ export const generateShareLink = createAsyncThunk(
         documentId,
         options
       );
-      var token = response.shareToken;
-      return response;
+      // Retornamos apenas o token, desconsiderando a URL
+      return {
+        shareToken: response.shareToken,
+      };
     } catch (error) {
       return rejectWithValue(
-        error.message || "Erro ao gerar link de compartilhamento"
+        error.message || "Erro ao gerar token de compartilhamento"
       );
     }
   }
@@ -147,7 +150,7 @@ const shareSlice = createSlice({
     error: null,
     shareCode: null,
     shareLink: null,
-    shareLinkUrl: null,
+    // Removido shareLinkUrl pois não será mais usado
     deepLinkToken: null,
     collaborators: [],
   },
@@ -157,7 +160,7 @@ const shareSlice = createSlice({
       state.error = null;
       state.shareCode = null;
       state.shareLink = null;
-      state.shareLinkUrl = null;
+      // Removido shareLinkUrl
       // Mantém os colaboradores e deepLinkToken, pois esses não devem ser limpos ao trocar de documento
     },
     clearDeepLinkToken: (state) => {
@@ -172,7 +175,7 @@ const shareSlice = createSlice({
       state.error = null;
       state.shareCode = null;
       state.shareLink = null;
-      state.shareLinkUrl = null;
+      // Removido shareLinkUrl
       state.deepLinkToken = null;
       state.collaborators = [];
     },
@@ -228,7 +231,7 @@ const shareSlice = createSlice({
       .addCase(generateShareLink.fulfilled, (state, action) => {
         state.loading = false;
         state.shareLink = action.payload.shareToken;
-        state.shareLinkUrl = action.payload.shareUrl;
+        // Removida a atribuição de shareLinkUrl
       })
       .addCase(generateShareLink.rejected, (state, action) => {
         state.loading = false;

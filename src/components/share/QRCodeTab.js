@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  Alert,
-  TouchableOpacity,
-  ScrollView,
-  Switch,
-} from "react-native";
+import { View, Text, Alert, TouchableOpacity, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
@@ -21,7 +14,6 @@ const QRCodeTab = ({
   handleGenerateLink,
 }) => {
   const [selectedPermission, setSelectedPermission] = useState("read");
-  const [useTokenOnly, setUseTokenOnly] = useState(false);
 
   const permissions = [
     { value: "read", label: "Leitura", icon: "eye" },
@@ -36,23 +28,23 @@ const QRCodeTab = ({
     }
   }, [shareLink]);
 
-  // Gerar link com permissão selecionada
+  // Gerar token com permissão selecionada
   const generateLinkWithPermission = () => {
     handleGenerateLink(selectedPermission);
   };
 
-  // Gerar novo link com permissão diferente
+  // Gerar novo token com permissão diferente
   const generateNewLink = () => {
     handleGenerateLink(selectedPermission);
   };
 
-  // Função para copiar o link ou token para a área de transferência
+  // Função para copiar o token para a área de transferência
   const copyToClipboard = async () => {
     try {
       await Clipboard.setStringAsync(shareLink);
-      // Alert.alert("Sucesso", `${useTokenOnly ? "Token" : "Link"} copiado para a área de transferência.`);
+      Alert.alert("Sucesso", "Token copiado para a área de transferência.");
     } catch (error) {
-      // Alert.alert("Erro", `Não foi possível copiar o ${useTokenOnly ? "token" : "link"}.`);
+      Alert.alert("Erro", "Não foi possível copiar o token.");
     }
   };
 
@@ -60,7 +52,7 @@ const QRCodeTab = ({
     return (
       <View style={styles.noQrCodeContainer}>
         <Text style={styles.noQrCodeText}>
-          Gere um link de compartilhamento para criar um QR Code
+          Gere um token de compartilhamento para criar um QR Code
         </Text>
 
         <View style={styles.permissionsContainer}>
@@ -100,12 +92,12 @@ const QRCodeTab = ({
         </View>
 
         <Button
-          title="Gerar link compartilhável"
+          title="Gerar token compartilhável"
           onPress={generateLinkWithPermission}
           loading={loading}
           disabled={loading}
           containerStyle={styles.generateButton}
-          leftIcon={<Feather name="link" size={20} color="#fff" />}
+          leftIcon={<Feather name="key" size={20} color="#fff" />}
         />
       </View>
     );
@@ -140,7 +132,7 @@ const QRCodeTab = ({
         </View>
 
         <View style={styles.newLinkContainer}>
-          <Text style={styles.newLinkTitle}>Alterar permissões do link:</Text>
+          <Text style={styles.newLinkTitle}>Alterar permissões do token:</Text>
 
           <View style={styles.permissionOptions}>
             {permissions.map((permission) => (
@@ -174,7 +166,7 @@ const QRCodeTab = ({
           </View>
 
           <Button
-            title="Gerar novo link"
+            title="Gerar novo token"
             onPress={generateNewLink}
             loading={loading}
             disabled={loading}

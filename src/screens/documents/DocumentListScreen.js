@@ -119,49 +119,45 @@ const DocumentListScreen = ({ navigation }) => {
   // Função para colar token de compartilhamento da área de transferência
   const handlePasteToken = async () => {
     setShowOptionsBottomSheet(false);
-
+    
     try {
       // Obter conteúdo da área de transferência
       const clipboardContent = await Clipboard.getStringAsync();
-
+      
       if (!clipboardContent) {
         Alert.alert(
-          "Área de transferência vazia",
+          "Área de transferência vazia", 
           "Não há conteúdo na área de transferência."
         );
         return;
       }
-
-      // Extrair token da área de transferência
-      // Verifica se é uma URL completa ou apenas o token
-      let shareToken = clipboardContent.trim();
-
-      // Se for uma URL, tentar extrair o token
-      if (shareToken.includes("/") && shareToken.includes("share")) {
-        try {
-          // Tentar extrair o token da URL
-          const urlParts = shareToken.split("/");
-          shareToken = urlParts[urlParts.length - 1];
-        } catch (error) {
-          console.error("Erro ao processar URL:", error);
-        }
+      
+      // Usar diretamente o token da área de transferência
+      const token = clipboardContent.trim();
+      
+      // Validar o formato do token (padrão hexadecimal de pelo menos 16 caracteres)
+      const isValidTokenFormat = /^[0-9a-f]{16,}$/i.test(token);
+      
+      if (!isValidTokenFormat) {
+        Alert.alert(
+          "Formato Inválido",
+          "O conteúdo colado não é um token válido. Verifique se copiou corretamente o token de compartilhamento."
+        );
+        return;
       }
-
+      
       // Mostrar indicador de carregamento
       setRefreshing(true);
-
+      
       // Processar o token
-      const result = await dispatch(joinByShareToken(shareToken)).unwrap();
-
+      const result = await dispatch(joinByShareToken(token)).unwrap();
+      
       if (result && result.documentId) {
         Alert.alert(
           "Sucesso",
           `Documento acessado com sucesso com permissão de ${
-            result.permission === "read"
-              ? "leitura"
-              : result.permission === "write"
-              ? "edição"
-              : "administrador"
+            result.permission === 'read' ? 'leitura' : 
+            result.permission === 'write' ? 'edição' : 'administrador'
           }`,
           [
             {
@@ -172,25 +168,21 @@ const DocumentListScreen = ({ navigation }) => {
                   documentId: result.documentId,
                   isSharedDocument: true,
                 });
-              },
-            },
+              }
+            }
           ]
         );
       } else {
-        Alert.alert(
-          "Erro",
-          "Não foi possível acessar o documento com esse token."
-        );
+        Alert.alert("Erro", "Não foi possível acessar o documento com esse token.");
       }
     } catch (error) {
       console.error("Erro ao processar token:", error);
-      let errorMessage =
-        "Não foi possível processar o token. Verifique se o token é válido.";
-
+      let errorMessage = "Não foi possível processar o token. Verifique se o token é válido.";
+      
       if (error?.message) {
         errorMessage = error.message;
       }
-
+      
       Alert.alert("Erro", errorMessage);
     } finally {
       setRefreshing(false);
