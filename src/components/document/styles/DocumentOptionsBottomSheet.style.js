@@ -76,6 +76,9 @@ export const styles = StyleSheet.create({
   scanIconContainer: {
     backgroundColor: "#e3f2fd",
   },
+  tokenIconContainer: {
+    backgroundColor: "#f3e5f5", // Cor de fundo roxa clara para combinar com o ícone
+  },
   newIconContainer: {
     backgroundColor: "#e8f5e9",
   },

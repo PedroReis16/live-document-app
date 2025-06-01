@@ -115,6 +115,9 @@ class ShareService {
   async generateShareLink(documentId, options = {}) {
     try {
       const response = await this.api.post(`/api/share/document/${documentId}/generate-link`, options);
+
+      console.log("Link de compartilhamento gerado:", response);
+
       return response;
     } catch (error) {
       console.error("Erro ao gerar link de compartilhamento:", error);

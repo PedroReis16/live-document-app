@@ -14,6 +14,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { styles } from "./styles/DocumentListScreen.style";
+import * as Clipboard from "expo-clipboard";
 
 // Components
 import DocumentItem from "../../components/document/DocumentItem";
@@ -26,6 +27,7 @@ import {
   deleteDocument,
   createDocument,
 } from "../../store/documentSlice";
+import { joinByShareToken } from "../../store/shareSlice";
 
 // Services
 const DocumentListScreen = ({ navigation }) => {
@@ -112,6 +114,87 @@ const DocumentListScreen = ({ navigation }) => {
   const handleScanQRCode = () => {
     setShowOptionsBottomSheet(false);
     navigation.navigate("QRCodeScannerScreen");
+  };
+
+  // Função para colar token de compartilhamento da área de transferência
+  const handlePasteToken = async () => {
+    setShowOptionsBottomSheet(false);
+
+    try {
+      // Obter conteúdo da área de transferência
+      const clipboardContent = await Clipboard.getStringAsync();
+
+      if (!clipboardContent) {
+        Alert.alert(
+          "Área de transferência vazia",
+          "Não há conteúdo na área de transferência."
+        );
+        return;
+      }
+
+      // Extrair token da área de transferência
+      // Verifica se é uma URL completa ou apenas o token
+      let shareToken = clipboardContent.trim();
+
+      // Se for uma URL, tentar extrair o token
+      if (shareToken.includes("/") && shareToken.includes("share")) {
+        try {
+          // Tentar extrair o token da URL
+          const urlParts = shareToken.split("/");
+          shareToken = urlParts[urlParts.length - 1];
+        } catch (error) {
+          console.error("Erro ao processar URL:", error);
+        }
+      }
+
+      // Mostrar indicador de carregamento
+      setRefreshing(true);
+
+      // Processar o token
+      const result = await dispatch(joinByShareToken(shareToken)).unwrap();
+
+      if (result && result.documentId) {
+        Alert.alert(
+          "Sucesso",
+          `Documento acessado com sucesso com permissão de ${
+            result.permission === "read"
+              ? "leitura"
+              : result.permission === "write"
+              ? "edição"
+              : "administrador"
+          }`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // Redirecionar para o documento
+                navigation.navigate("DocumentView", {
+                  documentId: result.documentId,
+                  isSharedDocument: true,
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Erro",
+          "Não foi possível acessar o documento com esse token."
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao processar token:", error);
+      let errorMessage =
+        "Não foi possível processar o token. Verifique se o token é válido.";
+
+      if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert("Erro", errorMessage);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Função para criar novo documento
@@ -382,6 +465,7 @@ const DocumentListScreen = ({ navigation }) => {
           onClose={handleCloseOptions}
           onCreateNew={handleCreateDocument}
           onScanQR={handleScanQRCode}
+          onPasteToken={handlePasteToken}
         />
 
         <TouchableOpacity

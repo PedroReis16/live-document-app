@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
-  StyleSheet, 
   KeyboardAvoidingView, 
   Platform,
   Alert,
@@ -11,19 +10,13 @@ import {
 } from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
 import { useSelector, useDispatch } from 'react-redux';
-import { updateDocument, updateDocumentContent } from '../../store/documentSlice';
+import { updateDocument } from '../../store/documentSlice';
 import SocketService from '../../services/socket';
 import NetInfo from '@react-native-community/netinfo';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { debounce } from 'lodash';
 import { Feather } from '@expo/vector-icons';
 import { styles } from './styles/DocumentEditor.style';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Componentes personalizados
-import Button from '../common/Button';
 
 // Chave para salvar documentos no storage local
 const LOCAL_DOCUMENT_KEY_PREFIX = 'local_document_';
@@ -396,18 +389,12 @@ const DocumentEditor = ({
   const handleTitleChange = (newTitle) => {
     setTitle(newTitle);
     
-    // Atualizar estado local imediatamente (optimistic)
-    dispatch(updateDocumentContent({
-      id: document?.id,
-      content: { title: newTitle }
-    }));
-    
-    // Emitir mudança para colaboração em tempo real
+    // Apenas emitir mudanças em colaboração, NÃO atualizar o Redux a cada tecla
     if (collaborationMode && collaborationActive) {
       emitChange({ title: newTitle });
     }
     
-    // Salvar com debounce
+    // Salvar com debounce (apenas localmente)
     if (!readOnly && document?.id) {
       debouncedSave(document.id, { title: newTitle, content });
     }
@@ -417,18 +404,12 @@ const DocumentEditor = ({
   const handleContentChange = (newContent) => {
     setContent(newContent);
     
-    // Atualizar estado local imediatamente (optimistic)
-    dispatch(updateDocumentContent({
-      id: document?.id,
-      content: { content: newContent }
-    }));
-    
-    // Emitir mudança para colaboração em tempo real
+    // Apenas emitir mudanças em colaboração, NÃO atualizar o Redux a cada tecla
     if (collaborationMode && collaborationActive) {
       emitChange({ content: newContent });
     }
     
-    // Salvar com debounce
+    // Salvar com debounce (apenas localmente)
     if (!readOnly && document?.id) {
       debouncedSave(document.id, { title, content: newContent });
     }

@@ -15,6 +15,7 @@ const DocumentOptionsBottomSheet = ({
   onClose,
   onCreateNew,
   onScanQR,
+  onPasteToken,
 }) => {
   const [slideAnim] = React.useState(new Animated.Value(0));
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -80,6 +81,18 @@ const DocumentOptionsBottomSheet = ({
               <Text style={styles.optionTitle}>Escanear QR Code</Text>
               <Text style={styles.optionDescription}>
                 Escanear QR Code de um documento compartilhado
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.optionButton} onPress={onPasteToken}>
+            <View style={[styles.iconContainer, styles.tokenIconContainer]}>
+              <Feather name="clipboard" size={24} color="#9c27b0" />
+            </View>
+            <View style={styles.optionContent}>
+              <Text style={styles.optionTitle}>Colar token</Text>
+              <Text style={styles.optionDescription}>
+                Colar um token de compartilhamento da área de transferência
               </Text>
             </View>
           </TouchableOpacity>

@@ -1,6 +1,12 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, createAction } from "@reduxjs/toolkit";
 import DocumentService from "../services/documents";
 import SocketService from "../services/socket";
+
+// Nova ação para atualizações via socket sem triggering loading
+export const receiveSocketUpdate = createAction(
+  "documents/receiveSocketUpdate",
+  (payload) => payload
+);
 
 // Async thunks
 export const fetchDocuments = createAsyncThunk(
@@ -74,6 +80,9 @@ export const joinCollaboration = createAsyncThunk(
   "documents/joinCollaboration",
   async (documentId, { rejectWithValue, getState, dispatch }) => {
     try {
+      // Guardar o ID do documento solicitado para verificação posterior
+      const requestedDocId = documentId;
+      
       // Obter token do estado de autenticação
       const { auth } = getState();
       if (!auth.token) {
@@ -86,22 +95,78 @@ export const joinCollaboration = createAsyncThunk(
       }
 
       // Entrar no documento
-      const document = await SocketService.joinDocument(documentId);
+      const response = await SocketService.joinDocument(documentId);
+      console.log("Resposta joinDocument:", response);
+
+      // Verificar se o socket retornou o conteúdo do documento
+      // Isso acontece quando um colaborador entra em um documento compartilhado
+      if (response && response.document) {
+        const receivedDocId = response.document.id || response.document._id;
+        
+        // Verificar se o documento recebido é o mesmo que foi solicitado
+        if (receivedDocId.toString() !== requestedDocId.toString()) {
+          console.error(`Documento recebido (${receivedDocId}) diferente do solicitado (${requestedDocId})`);
+          return rejectWithValue(`Documento incorreto carregado. Por favor, tente novamente.`);
+        }
+        
+        // Normalizar o documento com o ID correto
+        const normalizedDocument = {
+          ...response.document,
+          id: receivedDocId
+        };
+        
+        // Atualizar o documento atual diretamente
+        dispatch(setCurrentDocument(normalizedDocument));
+      }
 
       // Configurar listeners para mudanças no documento
-      SocketService.onDocumentChange((data) => {
+      const unsubscribeChange = SocketService.onDocumentChange((data) => {
         if (data.changes) {
+          console.log("Recebidas alterações via socket:", data.changes);
+          
+          // Usar a nova action para atualizações via socket (sem loading)
           dispatch(
-            updateDocumentContent({
+            receiveSocketUpdate({
               id: documentId,
               content: data.changes,
+              userId: data.userId
             })
           );
         }
       });
 
-      return document;
+      // Configurar listener para receber o conteúdo inicial do documento
+      const unsubscribeContent = SocketService.onDocumentContent((data) => {
+        if (data.document) {
+          console.log("Conteúdo inicial recebido via socket:", data.document);
+          
+          // Verificar se o documento recebido é o mesmo que foi solicitado
+          const receivedDocId = data.document.id || data.document._id;
+          if (receivedDocId.toString() !== requestedDocId.toString()) {
+            console.error(`Conteúdo inicial: documento recebido (${receivedDocId}) diferente do solicitado (${requestedDocId})`);
+            return;
+          }
+          
+          // Normalizar o documento
+          const normalizedDocument = {
+            ...data.document,
+            id: receivedDocId
+          };
+          
+          // Atualizar o documento atual
+          dispatch(setCurrentDocument(normalizedDocument));
+        }
+      });
+
+      // Retornar uma função para limpar os listeners quando não forem mais necessários
+      return {
+        cleanup: () => {
+          unsubscribeChange();
+          unsubscribeContent();
+        }
+      };
     } catch (error) {
+      console.error("Erro ao entrar na colaboração:", error);
       return rejectWithValue(error.message || "Erro ao entrar na colaboração");
     }
   }
@@ -402,6 +467,24 @@ const documentSlice = createSlice({
       .addCase(leaveCollaboration.fulfilled, (state) => {
         state.collaborationActive = false;
         state.collaborators = [];
+      })
+
+      // Receive socket update
+      .addCase(receiveSocketUpdate, (state, action) => {
+        const { id, content } = action.payload;
+
+        // Atualizar documento atual se for o mesmo
+        if (state.currentDocument && state.currentDocument.id === id) {
+          state.currentDocument.content = content;
+        }
+
+        // Atualizar na lista se existir
+        if (state.documents) {
+          const documentInList = state.documents.find((doc) => doc.id === id);
+          if (documentInList) {
+            documentInList.content = content;
+          }
+        }
       });
   },
 });

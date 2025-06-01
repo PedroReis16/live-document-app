@@ -53,22 +53,26 @@ export const styles = StyleSheet.create({
   qrCodeActions: {
     marginVertical: 20,
   },
+  // Estilo atualizado para o container de link com botão de cópia
   linkContainer: {
-    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#f5f5f5",
     borderRadius: 8,
-    padding: 16,
-    marginVertical: 10,
+    padding: 10,
+    marginVertical: 20,
+    width: "90%",
   },
   linkTitle: {
     fontSize: 14,
     color: "#666",
     marginBottom: 8,
   },
+  // Estilo atualizado para o texto do link
   linkText: {
-    fontSize: 15,
+    flex: 1,
+    fontSize: 14,
     color: "#333",
-    marginBottom: 16,
   },
   linkActions: {
     flexDirection: "row",
@@ -76,6 +80,9 @@ export const styles = StyleSheet.create({
   },
   linkButton: {
     marginHorizontal: 5,
+  },
+  copyButton: {
+    padding: 10,
   },
   // Estilos para a área de permissões
   permissionsContainer: {
@@ -129,5 +136,13 @@ export const styles = StyleSheet.create({
   },
   generateNewButton: {
     marginTop: 16,
+  },
+  // Novo estilo para o toggle de token
+  tokenToggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    gap: 10,
   },
 });

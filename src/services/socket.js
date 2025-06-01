@@ -180,14 +180,32 @@ class SocketService {
   }
 
   /**
+   * Método alternativo para enviar alterações no documento (alias para sendDocumentChanges)
+   * @param {String} documentId - ID do documento
+   * @param {Object} changes - Alterações feitas no documento
+   */
+  emitDocumentChange(documentId, changes) {
+    this.sendDocumentChanges(documentId, changes);
+  }
+
+  /**
    * Notifica que o usuário está digitando
    * @param {String} documentId - ID do documento
-   * @param {Boolean} isTyping - Se o usuário está digitando
+   * @param {Boolean} isTyping - Se o usuário está digitando (default: true)
    */
-  sendUserTyping(documentId, isTyping) {
+  sendUserTyping(documentId, isTyping = true) {
     if (this.socket && this.socket.connected) {
       this.socket.emit('user-typing', documentId, isTyping);
     }
+  }
+
+  /**
+   * Método alternativo para notificar digitação (alias para sendUserTyping)
+   * @param {String} documentId - ID do documento
+   * @param {Boolean} isTyping - Se o usuário está digitando (default: true)
+   */
+  emitUserTyping(documentId, isTyping = true) {
+    this.sendUserTyping(documentId, isTyping);
   }
 
   /**
@@ -221,6 +239,56 @@ class SocketService {
     if (this.handlers[event]) {
       this.handlers[event] = this.handlers[event].filter(h => h !== handler);
     }
+  }
+
+  /**
+   * Adiciona um listener para alterações de documento recebidas via socket
+   * @param {Function} handler - Função para tratar alterações de documento
+   * @returns {Function} Função para remover o listener
+   */
+  onDocumentChange(handler) {
+    this.on('document-change', handler);
+    return () => this.off('document-change', handler);
+  }
+
+  /**
+   * Adiciona um listener para eventos de usuário digitando
+   * @param {Function} handler - Função para tratar eventos de digitação
+   * @returns {Function} Função para remover o listener
+   */
+  onUserTyping(handler) {
+    this.on('user-typing', handler);
+    return () => this.off('user-typing', handler);
+  }
+
+  /**
+   * Adiciona um listener para eventos de colaborador entrando no documento
+   * @param {Function} handler - Função para tratar eventos de entrada
+   * @returns {Function} Função para remover o listener
+   */
+  onCollaboratorJoined(handler) {
+    this.on('user-connected', handler);
+    return () => this.off('user-connected', handler);
+  }
+
+  /**
+   * Adiciona um listener para eventos de colaborador saindo do documento
+   * @param {Function} handler - Função para tratar eventos de saída
+   * @returns {Function} Função para remover o listener
+   */
+  onCollaboratorLeft(handler) {
+    this.on('user-disconnected', handler);
+    return () => this.off('user-disconnected', handler);
+  }
+
+  /**
+   * Adiciona um listener para receber o conteúdo inicial de um documento
+   * @param {Function} handler - Função para tratar o conteúdo inicial
+   * @returns {Function} Função para remover o listener
+   */
+  onDocumentContent(handler) {
+    this.on('document-content', handler);
+    return () => this.off('document-content', handler);
   }
 }
 

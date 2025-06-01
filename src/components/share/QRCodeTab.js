@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Alert, TouchableOpacity, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  Alert,
+  TouchableOpacity,
+  ScrollView,
+  Switch,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
@@ -9,12 +16,13 @@ import Button from "../common/Button";
 const QRCodeTab = ({
   documentId,
   loading,
-  shareLinkUrl,
+  shareLink,
   currentDocument,
   handleGenerateLink,
-  shareLinkExternally,
 }) => {
   const [selectedPermission, setSelectedPermission] = useState("read");
+  const [useTokenOnly, setUseTokenOnly] = useState(false);
+
   const permissions = [
     { value: "read", label: "Leitura", icon: "eye" },
     { value: "write", label: "Edição", icon: "edit-2" },
@@ -23,19 +31,10 @@ const QRCodeTab = ({
 
   // Reset da permissão selecionada quando o link muda ou é removido
   useEffect(() => {
-    if (!shareLinkUrl) {
-      // Quando não há link, volta para a permissão default
+    if (!shareLink) {
       setSelectedPermission("read");
     }
-  }, [shareLinkUrl]);
-
-  // Copiar link para a área de transferência
-  const copyLinkToClipboard = async () => {
-    if (!shareLinkUrl) return;
-
-    await Clipboard.setStringAsync(shareLinkUrl);
-    Alert.alert("Copiado", "Link copiado para a área de transferência");
-  };
+  }, [shareLink]);
 
   // Gerar link com permissão selecionada
   const generateLinkWithPermission = () => {
@@ -47,7 +46,17 @@ const QRCodeTab = ({
     handleGenerateLink(selectedPermission);
   };
 
-  if (!shareLinkUrl) {
+  // Função para copiar o link ou token para a área de transferência
+  const copyToClipboard = async () => {
+    try {
+      await Clipboard.setStringAsync(shareLink);
+      // Alert.alert("Sucesso", `${useTokenOnly ? "Token" : "Link"} copiado para a área de transferência.`);
+    } catch (error) {
+      // Alert.alert("Erro", `Não foi possível copiar o ${useTokenOnly ? "token" : "link"}.`);
+    }
+  };
+
+  if (!shareLink) {
     return (
       <View style={styles.noQrCodeContainer}>
         <Text style={styles.noQrCodeText}>
@@ -114,31 +123,20 @@ const QRCodeTab = ({
         </View>
 
         <View style={styles.qrCodeWrapper}>
-          <QRCode value={shareLinkUrl} size={200} />
-        </View>
-
-        <View style={styles.qrCodeActions}>
-          <Button
-            title="Compartilhar QR Code"
-            onPress={shareLinkExternally}
-            leftIcon={<Feather name="share-2" size={20} color="#fff" />}
-          />
+          <QRCode value={shareLink} size={200} />
         </View>
 
         <View style={styles.linkContainer}>
-          <Text style={styles.linkTitle}>Link direto:</Text>
-          <Text style={styles.linkText} numberOfLines={1}>
-            {shareLinkUrl}
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="middle"
+            style={styles.linkText}
+          >
+            {shareLink}
           </Text>
-          <View style={styles.linkActions}>
-            <Button
-              title="Copiar link"
-              onPress={copyLinkToClipboard}
-              type="outline"
-              leftIcon={<Feather name="copy" size={20} color="#2196f3" />}
-              containerStyle={styles.linkButton}
-            />
-          </View>
+          <TouchableOpacity onPress={copyToClipboard} style={styles.copyButton}>
+            <Feather name="copy" size={20} color="#2196f3" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.newLinkContainer}>

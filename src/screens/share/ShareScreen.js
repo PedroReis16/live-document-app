@@ -9,7 +9,6 @@ import { generateShareLink, shareWithUser, resetShareState, clearAllShareState }
 // Componentes
 import TabNavigator from "../../components/share/TabNavigator";
 import QRCodeTab from "../../components/share/QRCodeTab";
-import ScannerTab from "../../components/share/ScannerTab";
 import CollaboratorsList from "../../components/document/CollaboratorsList";
 
 const ShareScreen = ({ route, navigation }) => {
@@ -75,55 +74,7 @@ const ShareScreen = ({ route, navigation }) => {
     }
   };
 
-  // Compartilhar com usuário por email
-  const handleShareWithUser = async ({ email, permission }) => {
-    if (!email || !documentId) return;
-
-    try {
-      await dispatch(
-        shareWithUser({
-          documentId,
-          email,
-          permission,
-        })
-      ).unwrap();
-
-      Alert.alert("Sucesso", "Documento compartilhado com sucesso!");
-
-      return true;
-    } catch (error) {
-      Alert.alert(
-        "Erro",
-        error.message ||
-          "Não foi possível compartilhar o documento. Verifique o email e tente novamente."
-      );
-      throw error;
-    }
-  };
-
-  // Compartilhar link via compartilhamento nativo
-  const shareLinkExternally = async () => {
-    if (!shareLinkUrl || !currentDocument) return;
-
-    try {
-      await Share.share({
-        message: `Acesse meu documento "${
-          currentDocument.title || "Documento"
-        }" através deste link: ${shareLinkUrl}`,
-        url: shareLinkUrl,
-        title: "Compartilhar documento",
-      });
-    } catch (error) {
-      console.error("Erro ao compartilhar:", error);
-      Alert.alert("Erro", "Não foi possível compartilhar o link.");
-    }
-  };
-
-  // Abrir tela do scanner QR Code
-  const handleOpenScanner = () => {
-    navigation.navigate("QRCodeScannerScreen");
-  };
-
+ 
   // Renderizar o conteúdo baseado na aba selecionada
   const renderContent = () => {
     switch (activeTab) {
@@ -135,14 +86,12 @@ const ShareScreen = ({ route, navigation }) => {
           <QRCodeTab
             documentId={documentId}
             loading={loading}
-            shareLinkUrl={shareLinkUrl}
+            shareLink={shareLink}
             currentDocument={currentDocument}
             handleGenerateLink={handleGenerateLink}
-            shareLinkExternally={shareLinkExternally}
           />
         );
-      case "scan":
-        return <ScannerTab handleOpenScanner={handleOpenScanner} />;
+      
       default:
         return null;
     }
