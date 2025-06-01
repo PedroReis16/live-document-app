@@ -1,5 +1,5 @@
 // filepath: d:\Documentos\Code\Projetos\document-app\src\services\share.js
-import { baseApiService } from './BaseApiService';
+import { baseApiService } from "./BaseApiService";
 
 class ShareService {
   constructor() {
@@ -13,11 +13,11 @@ class ShareService {
    * @param {String} permission - Permissão a conceder
    * @returns {Promise} Promessa com resultado do compartilhamento
    */
-  async shareWithUser(documentId, email, permission = 'read') {
+  async shareWithUser(documentId, email, permission = "read") {
     try {
       const response = await this.api.post(`/api/share/${documentId}`, {
         email,
-        permission
+        permission,
       });
       return response;
     } catch (error) {
@@ -34,7 +34,9 @@ class ShareService {
    */
   async revokeAccess(documentId, userId) {
     try {
-      const response = await this.api.delete(`/api/share/${documentId}/${userId}`);
+      const response = await this.api.delete(
+        `/api/share/${documentId}/${userId}`
+      );
       return response;
     } catch (error) {
       console.error("Erro ao revogar acesso:", error);
@@ -49,14 +51,17 @@ class ShareService {
    */
   async getShares(documentId) {
     try {
+      console.log("Obtendo compartilhamentos para o documento:", documentId);
       const response = await this.api.get(`/api/share/${documentId}`);
+
+      console.log("Compartilhamentos obtidos:", response.data);
       return response;
     } catch (error) {
       console.error("Erro ao obter compartilhamentos:", error);
       throw error;
     }
   }
-  
+
   /**
    * Atualiza permissão de um usuário em um documento
    * @param {String} documentId - ID do documento
@@ -66,9 +71,12 @@ class ShareService {
    */
   async updatePermission(documentId, userId, permission) {
     try {
-      const response = await this.api.put(`/api/share/${documentId}/${userId}`, {
-        permission
-      });
+      const response = await this.api.put(
+        `/api/share/${documentId}/${userId}`,
+        {
+          permission,
+        }
+      );
       return response;
     } catch (error) {
       console.error("Erro ao atualizar permissão:", error);
@@ -98,14 +106,14 @@ class ShareService {
    */
   async joinWithCode(shareCode) {
     try {
-      const response = await this.api.post('/api/share/join', { shareCode });
+      const response = await this.api.post("/api/share/join", { shareCode });
       return response;
     } catch (error) {
       console.error("Erro ao entrar com código de compartilhamento:", error);
       throw error;
     }
   }
-  
+
   /**
    * Gera um link de compartilhamento para o documento
    * @param {String} documentId - ID do documento
@@ -114,7 +122,10 @@ class ShareService {
    */
   async generateShareLink(documentId, options = {}) {
     try {
-      const response = await this.api.post(`/api/share/document/${documentId}/generate-link`, options);
+      const response = await this.api.post(
+        `/api/share/document/${documentId}/generate-link`,
+        options
+      );
 
       console.log("Link de compartilhamento gerado:", response);
 
@@ -124,7 +135,7 @@ class ShareService {
       throw error;
     }
   }
-  
+
   /**
    * Entra em um documento usando token de compartilhamento (via QR code ou URL)
    * @param {String} shareToken - Token do link de compartilhamento
@@ -134,7 +145,9 @@ class ShareService {
     try {
       console.log(shareToken);
 
-      const response = await this.api.post('/api/share/join-by-token', { shareToken });
+      const response = await this.api.post("/api/share/join-by-token", {
+        shareToken,
+      });
       return response;
     } catch (error) {
       console.error("Erro ao entrar com token de compartilhamento:", error);
@@ -149,14 +162,16 @@ class ShareService {
    */
   async getCollaborators(documentId) {
     try {
-      const response = await this.api.get(`/api/share/${documentId}/collaborators`);
+      const response = await this.api.get(
+        `/api/share/${documentId}/collaborators`
+      );
       return response;
     } catch (error) {
       console.error("Erro ao obter colaboradores:", error);
       throw error;
     }
   }
-  
+
   /**
    * Atualiza permissão de um colaborador em um documento
    * @param {String} documentId - ID do documento
@@ -166,16 +181,19 @@ class ShareService {
    */
   async updateCollaboratorPermission(documentId, userId, permission) {
     try {
-      const response = await this.api.put(`/api/share/${documentId}/collaborators/${userId}`, {
-        permission
-      });
+      const response = await this.api.put(
+        `/api/share/${documentId}/collaborators/${userId}`,
+        {
+          permission,
+        }
+      );
       return response;
     } catch (error) {
       console.error("Erro ao atualizar permissão do colaborador:", error);
       throw error;
     }
   }
-  
+
   /**
    * Remove um colaborador de um documento
    * @param {String} documentId - ID do documento
@@ -184,7 +202,9 @@ class ShareService {
    */
   async removeCollaborator(documentId, userId) {
     try {
-      const response = await this.api.delete(`/api/share/${documentId}/collaborators/${userId}`);
+      const response = await this.api.delete(
+        `/api/share/${documentId}/collaborators/${userId}`
+      );
       return response;
     } catch (error) {
       console.error("Erro ao remover colaborador:", error);
@@ -201,19 +221,30 @@ class ShareService {
   async getUserDocumentPermission(documentId, userId) {
     try {
       // Primeiro, verificamos se o documento tem compartilhamentos para este usuário
-      const response = await this.api.get(`/api/share/${documentId}/permission/${userId}`);
-      
+      const response = await this.api.get(
+        `/api/share/${documentId}/permission/${userId}`
+      );
+      console.log(
+        `Permissão do usuário ${userId} no documento ${documentId}:`,
+        response.data
+      );
       // Se a resposta tiver um campo permission, esse é o nível de permissão do usuário
       if (response && response.data && response.data.permission) {
+        console.log(
+          `Usuário ${userId} tem permissão: ${response.data.permission}`
+        );
         return { permission: response.data.permission };
       }
-      
+
       // Se não houver permissão específica, assumir permissão de leitura
-      return { permission: 'read' };
+      return { permission: "read" };
     } catch (error) {
-      console.error(`Erro ao verificar permissão do usuário ${userId} no documento ${documentId}:`, error);
+      console.error(
+        `Erro ao verificar permissão do usuário ${userId} no documento ${documentId}:`,
+        error
+      );
       // Em caso de erro, assumimos que o usuário não tem permissão
-      return { permission: 'read' };
+      return { permission: "read" };
     }
   }
 
@@ -221,7 +252,7 @@ class ShareService {
   setupCollaborationListeners(documentId, handlers) {
     // Importa o serviço de socket se ainda não estiver disponível
     if (!this.socketService) {
-      import('./socket').then(module => {
+      import("./socket").then((module) => {
         this.socketService = module.default;
         this._setupListenersInternal(documentId, handlers);
       });
@@ -232,22 +263,24 @@ class ShareService {
 
   // Método interno para configurar os listeners após garantir que o socketService existe
   _setupListenersInternal(documentId, handlers) {
-    console.log(`Configurando listeners de colaboração para documento ${documentId}`);
-    
+    console.log(
+      `Configurando listeners de colaboração para documento ${documentId}`
+    );
+
     // Armazena os removedores de listeners para poder limpar depois
     this.listenerCleanups = [];
-    
+
     // Configura os listeners de acordo com as handlers fornecidas
     if (handlers.onDocumentChange) {
       this.listenerCleanups.push(
-        this.socketService.onDocumentChange(data => {
+        this.socketService.onDocumentChange((data) => {
           if (data.documentId === documentId) {
             handlers.onDocumentChange(data.changes);
           }
         })
       );
     }
-    
+
     if (handlers.onUserTyping) {
       this.listenerCleanups.push(
         this.socketService.onUserTyping((docId, user, isTyping) => {
@@ -257,7 +290,7 @@ class ShareService {
         })
       );
     }
-    
+
     if (handlers.onCollaboratorJoined) {
       this.listenerCleanups.push(
         this.socketService.onCollaboratorJoined((docId, userData) => {
@@ -267,7 +300,7 @@ class ShareService {
         })
       );
     }
-    
+
     if (handlers.onCollaboratorLeft) {
       this.listenerCleanups.push(
         this.socketService.onCollaboratorLeft((docId, userData) => {
@@ -287,15 +320,16 @@ class ShareService {
         })
       );
     }
-    
+
     // Notifica que estamos entrando no documento para colaboração
-    this.socketService.joinDocument(documentId)
-      .then(connectedUsers => {
+    this.socketService
+      .joinDocument(documentId)
+      .then((connectedUsers) => {
         if (handlers.onConnected) {
           handlers.onConnected(connectedUsers);
         }
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Erro ao entrar no documento para colaboração:", error);
         if (handlers.onError) {
           handlers.onError(error);
@@ -305,22 +339,32 @@ class ShareService {
 
   removeCollaborationListeners() {
     console.log("Removendo listeners de colaboração");
-    
+
     // Executa todas as funções de limpeza armazenadas
     if (this.listenerCleanups && this.listenerCleanups.length) {
-      this.listenerCleanups.forEach(cleanup => {
-        if (typeof cleanup === 'function') {
-          cleanup();
+      this.listenerCleanups.forEach((cleanup) => {
+        if (typeof cleanup === "function") {
+          try {
+            cleanup();
+          } catch (error) {
+            console.error("Erro ao remover listener:", error);
+          }
         }
       });
-      
+
       // Limpa o array após remover os listeners
       this.listenerCleanups = [];
     }
-    
+
     // Se estiver em um documento, sai dele
     if (this.socketService && this.socketService.currentDocument) {
-      this.socketService.leaveDocument(this.socketService.currentDocument);
+      try {
+        console.log(`Saindo do documento ${this.socketService.currentDocument}`);
+        this.socketService.leaveDocument(this.socketService.currentDocument);
+        this.socketService.currentDocument = null;
+      } catch (error) {
+        console.error("Erro ao sair do documento:", error);
+      }
     }
   }
 }

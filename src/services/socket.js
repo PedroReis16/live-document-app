@@ -1,6 +1,6 @@
-import { io } from 'socket.io-client';
-import { API_BASE_URL } from '../utils/constants';
-import StorageService from './storage';
+import { io } from "socket.io-client";
+import { API_BASE_URL } from "../utils/constants";
+import StorageService from "./storage";
 
 class SocketService {
   constructor() {
@@ -8,12 +8,12 @@ class SocketService {
     this.currentDocument = null;
     this.currentToken = null;
     this.handlers = {
-      'document-change': [],
-      'user-connected': [],
-      'user-disconnected': [],
-      'cursor-position': [],
-      'user-typing': [],
-      'error': []
+      "document-change": [],
+      "user-connected": [],
+      "user-disconnected": [],
+      "cursor-position": [],
+      "user-typing": [],
+      error: [],
     };
   }
 
@@ -25,18 +25,18 @@ class SocketService {
     this.currentToken = token;
 
     if (this.socket && this.socket.connected) {
-      console.log('Socket já está conectado');
+      console.log("Socket já está conectado");
       return;
     }
 
     this.socket = io(API_BASE_URL, {
       auth: {
-        token
+        token,
       },
-      transports: ['websocket'],
+      transports: ["websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
     });
 
     this.setupListeners();
@@ -48,7 +48,7 @@ class SocketService {
   async reconnect() {
     // Se temos um token na memória, usamos ele
     let token = this.currentToken;
-    
+
     // Caso contrário, tentamos buscar do storage
     if (!token) {
       const tokens = await StorageService.getTokens();
@@ -57,13 +57,13 @@ class SocketService {
         this.currentToken = token;
       }
     }
-    
+
     // Só tentamos conectar se tivermos um token
     if (token) {
       this.connect(token);
       return true;
     }
-    
+
     return false;
   }
 
@@ -93,26 +93,58 @@ class SocketService {
   setupListeners() {
     if (!this.socket) return;
 
-    this.socket.on('connect', () => {
-      console.log('Socket conectado!');
+    this.socket.on("connect", () => {
+      console.log("Socket conectado! ID:", this.socket.id);
+
+      // Reconectar ao documento atual se necessário
+      if (this.currentDocument) {
+        console.log(
+          `Reconectando ao documento ${this.currentDocument} após reconexão do socket`
+        );
+        this.socket.emit(
+          "join-document",
+          this.currentDocument,
+          this.currentToken
+        );
+      }
     });
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on("disconnect", (reason) => {
       console.log(`Socket desconectado! Motivo: ${reason}`);
     });
 
-    this.socket.on('connect_error', (error) => {
-      console.error('Erro de conexão socket:', error);
+    this.socket.on("connect_error", (error) => {
+      console.error("Erro de conexão socket:", error);
     });
 
-    this.socket.on('auth-error', (data) => {
-      console.error('Erro de autenticação socket:', data.message);
+    this.socket.on("auth-error", (data) => {
+      console.error("Erro de autenticação socket:", data.message);
     });
 
-    // Redirecionar eventos para os handlers registrados
-    Object.keys(this.handlers).forEach(eventName => {
+    // Limpar e reconfigurar todos os listeners para os handlers registrados
+    Object.keys(this.handlers).forEach((eventName) => {
+      // Remover listeners anteriores para evitar duplicações
+      if (this.socket.hasListeners && this.socket.hasListeners(eventName)) {
+        this.socket.off(eventName);
+      }
+
+      // Registrar o listener para cada evento
       this.socket.on(eventName, (data) => {
-        this.handlers[eventName].forEach(handler => handler(data));
+        console.log(`Evento ${eventName} recebido:`, data);
+        if (this.handlers[eventName] && this.handlers[eventName].length > 0) {
+          this.handlers[eventName].forEach((handler) => {
+            try {
+              console.log("Data do evento:", data);
+              handler(data);
+            } catch (error) {
+              console.error(`Erro ao processar evento ${eventName}:`, error);
+            }
+          });
+        } else {
+          console.warn(
+            `Evento ${eventName} recebido, mas não há handlers registrados`
+          );
+        }
       });
     });
   }
@@ -126,34 +158,34 @@ class SocketService {
   joinDocument(documentId, token = null) {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
-        return reject(new Error('Socket não está conectado'));
+        return reject(new Error("Socket não está conectado"));
       }
 
       this.currentDocument = documentId;
-      this.socket.emit('join-document', documentId, token);
+      this.socket.emit("join-document", documentId, token);
 
       // Aguardar evento de conexão com sucesso
       const onConnected = (users) => {
         console.log(`Conectado ao documento ${documentId}`);
-        this.socket.off('connected-users', onConnected);
-        this.socket.off('auth-error', onError);
-        this.socket.off('error', onError);
+        this.socket.off("connected-users", onConnected);
+        this.socket.off("auth-error", onError);
+        this.socket.off("error", onError);
         resolve(users);
       };
 
       // Aguardar evento de erro
       const onError = (error) => {
         console.error(`Erro ao entrar no documento ${documentId}:`, error);
-        this.socket.off('connected-users', onConnected);
-        this.socket.off('auth-error', onError);
-        this.socket.off('error', onError);
+        this.socket.off("connected-users", onConnected);
+        this.socket.off("auth-error", onError);
+        this.socket.off("error", onError);
         reject(error);
       };
 
       // Registrar listeners temporários
-      this.socket.once('connected-users', onConnected);
-      this.socket.once('auth-error', onError);
-      this.socket.once('error', onError);
+      this.socket.once("connected-users", onConnected);
+      this.socket.once("auth-error", onError);
+      this.socket.once("error", onError);
     });
   }
 
@@ -163,7 +195,7 @@ class SocketService {
    */
   leaveDocument(documentId) {
     if (this.socket && this.socket.connected) {
-      this.socket.emit('leave-document', documentId);
+      this.socket.emit("leave-document", documentId);
       this.currentDocument = null;
     }
   }
@@ -175,7 +207,7 @@ class SocketService {
    */
   sendDocumentChanges(documentId, changes) {
     if (this.socket && this.socket.connected) {
-      this.socket.emit('document-change', documentId, changes);
+      this.socket.emit("document-change", documentId, changes);
     }
   }
 
@@ -195,7 +227,7 @@ class SocketService {
    */
   sendUserTyping(documentId, isTyping = true) {
     if (this.socket && this.socket.connected) {
-      this.socket.emit('user-typing', documentId, isTyping);
+      this.socket.emit("user-typing", documentId, isTyping);
     }
   }
 
@@ -215,7 +247,7 @@ class SocketService {
    */
   sendCursorPosition(documentId, position) {
     if (this.socket && this.socket.connected) {
-      this.socket.emit('cursor-position', documentId, position);
+      this.socket.emit("cursor-position", documentId, position);
     }
   }
 
@@ -237,7 +269,7 @@ class SocketService {
    */
   off(event, handler) {
     if (this.handlers[event]) {
-      this.handlers[event] = this.handlers[event].filter(h => h !== handler);
+      this.handlers[event] = this.handlers[event].filter((h) => h !== handler);
     }
   }
 
@@ -247,8 +279,8 @@ class SocketService {
    * @returns {Function} Função para remover o listener
    */
   onDocumentChange(handler) {
-    this.on('document-change', handler);
-    return () => this.off('document-change', handler);
+    this.on("document-change", handler);
+    return () => this.off("document-change", handler);
   }
 
   /**
@@ -257,8 +289,8 @@ class SocketService {
    * @returns {Function} Função para remover o listener
    */
   onUserTyping(handler) {
-    this.on('user-typing', handler);
-    return () => this.off('user-typing', handler);
+    this.on("user-typing", handler);
+    return () => this.off("user-typing", handler);
   }
 
   /**
@@ -267,8 +299,8 @@ class SocketService {
    * @returns {Function} Função para remover o listener
    */
   onCollaboratorJoined(handler) {
-    this.on('user-connected', handler);
-    return () => this.off('user-connected', handler);
+    this.on("user-connected", handler);
+    return () => this.off("user-connected", handler);
   }
 
   /**
@@ -277,8 +309,8 @@ class SocketService {
    * @returns {Function} Função para remover o listener
    */
   onCollaboratorLeft(handler) {
-    this.on('user-disconnected', handler);
-    return () => this.off('user-disconnected', handler);
+    this.on("user-disconnected", handler);
+    return () => this.off("user-disconnected", handler);
   }
 
   /**
@@ -287,8 +319,8 @@ class SocketService {
    * @returns {Function} Função para remover o listener
    */
   onDocumentContent(handler) {
-    this.on('document-content', handler);
-    return () => this.off('document-content', handler);
+    this.on("document-content", handler);
+    return () => this.off("document-content", handler);
   }
 }
 

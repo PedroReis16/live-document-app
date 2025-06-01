@@ -72,6 +72,14 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 100,
   },
+  helpText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 12,
+    opacity: 0.8,
+    paddingHorizontal: 20,
+  },
   button: {
     backgroundColor: '#2196f3',
     paddingVertical: 12,
@@ -80,8 +88,23 @@ export const styles = StyleSheet.create({
     marginTop: 24,
     alignSelf: 'center',
   },
+  buttonOutline: {
+    backgroundColor: 'transparent',
+    paddingVertical: 11,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#2196f3',
+  },
   buttonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonOutlineText: {
+    color: '#2196f3',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -111,4 +134,19 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  buttonsContainer: {
+    width: '100%',
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  permissionIcon: {
+    marginBottom: 20,
+  }
 });

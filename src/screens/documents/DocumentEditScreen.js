@@ -28,6 +28,8 @@ import Button from "../../components/common/Button";
 import ShareService from "../../services/share";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { set } from "lodash";
+import SocketService from "../../services/socket";
+import StorageService from "../../services/storage";
 
 // Chave para salvar documentos no storage local
 const LOCAL_DOCUMENT_KEY_PREFIX = "local_document_";
@@ -101,37 +103,77 @@ const DocumentEditScreen = ({ route, navigation }) => {
 
   // Verificar se o documento é compartilhado
   const checkDocumentShareStatus = async (docId) => {
-    if (!isScreenMounted.current) return;
+    if (!isScreenMounted.current || !user) return;
 
     try {
       console.log(
         "Verificando status de compartilhamento para o documento:",
         docId
       );
-      // Consulta a API de compartilhamento para verificar se o documento tem compartilhamentos
-      const response = await ShareService.getShares(docId);
+
+      console.log("Dados de permissão do usuário:", user);
+      console.log("ID do usuário:", user.id || user.data._id);
+      console.log("Documento atual:", currentDocument);
+      // Primeiro verifica se o usuário atual tem permissão para este documento
+      const userPermissionData = await ShareService.getUserDocumentPermission(
+        docId,
+        user.id || user.data._id
+      );
 
       if (!isScreenMounted.current) return;
 
-      console.log("Compartilhamentos encontrados:", response);
+      console.log("Permissão do usuário:", userPermissionData);
 
-      // Se tiver dados de compartilhamento, então é um documento compartilhado
-      const hasShares = response && response.data && response.data.length > 0;
-      setIsSharedDocument(hasShares);
-      console.log("Documento é compartilhado:", hasShares);
+      // Define a permissão do usuário
+      if (userPermissionData && userPermissionData.permission) {
+        setUserPermission(userPermissionData.permission);
+      }
+
+      // Se o usuário tiver qualquer permissão diferente de null, então é um documento compartilhado
+      const hasAccess = userPermissionData && userPermissionData.permission;
+
+      // Tenta obter todos os compartilhamentos se for possível (pode falhar para não-proprietários)
+      try {
+        const response = await ShareService.getShares(docId);
+
+        if (!isScreenMounted.current) return;
+
+        console.log("Compartilhamentos encontrados:", response);
+
+        // Se tiver dados de compartilhamento, então é um documento compartilhado
+        const hasShares = response && response.data && response.data.length > 0;
+        setIsSharedDocument(hasShares || hasAccess);
+      } catch (error) {
+        // Se falhou ao obter compartilhamentos, mas o usuário tem permissão,
+        // ainda é considerado um documento compartilhado
+        if (hasAccess) {
+          setIsSharedDocument(true);
+          console.log(
+            "Documento considerado compartilhado baseado na permissão do usuário"
+          );
+        } else {
+          console.error(
+            "Erro ao verificar compartilhamentos e usuário sem permissão:",
+            error
+          );
+          setIsSharedDocument(false);
+        }
+      }
 
       if (!currentDocument) return;
 
       console.log("Documento atual:", currentDocument);
       console.log("ID do dono do documento:", currentDocument.ownerId);
+
       // Buscar informações do owner
       if (currentDocument && currentDocument.ownerId) {
         setDocumentOwner(currentDocument.ownerId);
-      }
 
-      // Determinar permissão do usuário
-      await determineUserPermission(docId);
-      console.log("As permissões do usuário foram definidas:", userPermission);
+        // Se o usuário for o proprietário, define a permissão como "owner"
+        if (currentDocument.ownerId === (user.id || user.data._id)) {
+          setUserPermission("owner");
+        }
+      }
 
       if (!isScreenMounted.current) {
         console.log("A tela ainda não esta montada, retornando...");
@@ -141,7 +183,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
       setIsDocumentLoaded(true);
 
       // Se for compartilhado, buscar colaboradores e ativar modo de colaboração
-      if (hasShares) {
+      if (isSharedDocument || hasAccess) {
         console.log("Documento compartilhado, ativando modo de colaboração");
         setCollaborationMode(true);
         console.log("Buscando colaboradores para o documento:", docId);
@@ -186,7 +228,7 @@ const DocumentEditScreen = ({ route, navigation }) => {
     try {
       var userPermissions = await ShareService.getUserDocumentPermission(
         docId,
-        user.id|| user.data._id
+        user.id || user.data._id
       );
       console.log("Permissões do usuário obtidas:", userPermissions);
       if (userPermissions && userPermissions.permission) {
@@ -252,40 +294,125 @@ const DocumentEditScreen = ({ route, navigation }) => {
       !hasJoinedCollaboration.current
     ) {
       hasJoinedCollaboration.current = true;
-      dispatch(joinCollaboration(currentDocument.id));
-      dispatch(fetchCollaborators(currentDocument.id));
 
-      ShareService.setupCollaborationListeners(currentDocument.id, {
-        onUserJoined: (data) => {
-          if (isScreenMounted.current) {
-            Alert.alert(
-              "Colaboração",
-              `${data.user.name || "Um usuário"} entrou no documento`
-            );
+      // Garantir que o socket está conectado antes de tentar juntar-se ao documento
+      const connectAndJoin = async () => {
+        try {
+          // Obter o token atual
+          var userToken = await StorageService.getTokens();
+
+          if (!userToken.accessToken) {
+            console.error("Token de acesso não encontrado para conexão socket");
+            return;
           }
-        },
-        onUserLeft: (data) => {
-          if (isScreenMounted.current) {
-            Alert.alert(
-              "Colaboração",
-              `${data.user.name || "Um usuário"} saiu do documento`
-            );
-          }
-        },
-        onPermissionChanged: (data) => {
-          if (isScreenMounted.current) {
-            Alert.alert(
-              "Permissões",
-              `Suas permissões foram alteradas para: ${data.permission}`
-            );
-          }
-        },
-      });
+
+          // Conectar o socket com o token de autenticação
+          console.log("Conectando socket com token...");
+          SocketService.connect(userToken.accessToken);
+
+          // Pequeno atraso para garantir que o socket esteja conectado
+          setTimeout(async () => {
+            // Verificar se o socket está conectado
+            if (!SocketService.isSocketConnected()) {
+              console.log("Socket não conectado, tentando reconectar...");
+              await SocketService.reconnect();
+            }
+
+            if (SocketService.isSocketConnected()) {
+              console.log(
+                "Socket conectado. Entrando na colaboração para o documento:",
+                currentDocument.id
+              );
+              dispatch(joinCollaboration(currentDocument.id));
+              dispatch(fetchCollaborators(currentDocument.id));
+
+              ShareService.setupCollaborationListeners(currentDocument.id, {
+                onUserJoined: (data) => {
+                  if (isScreenMounted.current) {
+                    Alert.alert(
+                      "Colaboração",
+                      `${data.user.name || "Um usuário"} entrou no documento`
+                    );
+                  }
+                },
+                onUserLeft: (data) => {
+                  if (isScreenMounted.current) {
+                    Alert.alert(
+                      "Colaboração",
+                      `${data.user.name || "Um usuário"} saiu do documento`
+                    );
+                  }
+                },
+                onPermissionChanged: (data) => {
+                  if (isScreenMounted.current) {
+                    // Update the userPermission state when permissions change
+                    setUserPermission(data.permission);
+                    console.log(
+                      "Permission updated from socket:",
+                      data.permission
+                    );
+
+                    Alert.alert(
+                      "Permissões",
+                      `Suas permissões foram alteradas para: ${data.permission}`
+                    );
+                  }
+                },
+              });
+            } else {
+              console.error(
+                "Não foi possível conectar o socket para colaboração"
+              );
+            }
+          }, 500);
+        } catch (error) {
+          console.error(
+            "Erro ao conectar socket e entrar na colaboração:",
+            error
+          );
+        }
+      };
+
+      connectAndJoin();
     }
 
     return () => {
       // Cleanup será feito no useEffect que gerencia o ciclo de vida do componente
     };
+  }, [collaborationMode, currentDocument, collaborationActive, dispatch]);
+
+  // Monitorar status da conexão socket e reconectar se necessário
+  useEffect(() => {
+    if (collaborationMode && currentDocument) {
+      const checkSocketStatus = setInterval(() => {
+        if (!SocketService.isSocketConnected() && isScreenMounted.current) {
+          console.log("Socket desconectado, tentando reconectar...");
+
+          // Tentar reconectar o socket
+          (async () => {
+            try {
+              const reconnected = await SocketService.reconnect();
+              if (reconnected && isScreenMounted.current) {
+                console.log("Socket reconectado com sucesso");
+
+                // Se estiver reconectado mas não estiver na sala de colaboração,
+                // entrar novamente na colaboração do documento
+                if (!collaborationActive) {
+                  console.log(
+                    "Reingressando na colaboração do documento após reconexão"
+                  );
+                  dispatch(joinCollaboration(currentDocument.id));
+                }
+              }
+            } catch (err) {
+              console.error("Erro ao reconectar socket:", err);
+            }
+          })();
+        }
+      }, 5000); // Verificar a cada 5 segundos
+
+      return () => clearInterval(checkSocketStatus);
+    }
   }, [collaborationMode, currentDocument, collaborationActive, dispatch]);
 
   const handleShare = () => {

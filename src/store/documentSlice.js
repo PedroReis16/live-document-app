@@ -121,6 +121,7 @@ export const joinCollaboration = createAsyncThunk(
 
       // Configurar listeners para mudanças no documento
       SocketService.onDocumentChange((data) => {
+        console.log("Recebida alteração via socket:", data);
         if (data.changes) {
           console.log("Recebidas alterações via socket:", data.changes);
           
@@ -139,6 +140,9 @@ export const joinCollaboration = createAsyncThunk(
       SocketService.onDocumentContent((data) => {
         if (data.document) {
           console.log("Conteúdo inicial recebido via socket:", data.document);
+          console.log("Tipo do documento recebido:", typeof data.document);
+          console.log("ID do documento solicitado:", requestedDocId);
+          console.log("ID do documento recebido:", data.document.id || data.document._id);
           
           // Verificar se o documento recebido é o mesmo que foi solicitado
           const receivedDocId = data.document.id || data.document._id;

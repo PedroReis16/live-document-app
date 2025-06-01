@@ -8,6 +8,7 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from "react-native";
 import { BarCodeScanner } from "expo-barcode-scanner";
 import { useDispatch } from "react-redux";
@@ -25,11 +26,27 @@ const QRCodeScannerScreen = ({ navigation }) => {
 
   // Solicitar permissão para usar a câmera
   useEffect(() => {
-    (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === "granted");
-    })();
+    requestCameraPermission();
   }, []);
+
+  // Função para solicitar permissão da câmera
+  const requestCameraPermission = async () => {
+    const { status } = await BarCodeScanner.requestPermissionsAsync();
+    setHasPermission(status === "granted");
+  };
+
+  // Abrir configurações do app para que o usuário habilite a permissão
+  const openAppSettings = async () => {
+    try {
+      await Linking.openSettings();
+    } catch (error) {
+      console.error("Erro ao abrir configurações:", error);
+      Alert.alert(
+        "Erro",
+        "Não foi possível abrir as configurações do aplicativo. Por favor, habilite manualmente a permissão da câmera nas configurações do seu dispositivo."
+      );
+    }
+  };
 
   // Manipular o resultado da varredura do QR Code
   const handleBarCodeScanned = async ({ type, data }) => {
@@ -39,10 +56,10 @@ const QRCodeScannerScreen = ({ navigation }) => {
     try {
       // O QR Code contém diretamente o token, não precisamos extrair de uma URL
       const token = data.trim();
-      
+
       // Validar o formato do token (padrão hexadecimal de pelo menos 16 caracteres)
       const isValidTokenFormat = /^[0-9a-f]{16,}$/i.test(token);
-      
+
       if (isValidTokenFormat) {
         // Processar o token
         await dispatch(processDeepLinkToken(token)).unwrap();
@@ -81,17 +98,41 @@ const QRCodeScannerScreen = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         <View style={styles.permissionContainer}>
-          <Feather name="camera-off" size={48} color="#f44336" />
+          <Feather
+            name="camera-off"
+            size={60}
+            color="#2196f3"
+            style={styles.permissionIcon}
+          />
+
           <Text style={styles.statusText}>Sem acesso à câmera</Text>
           <Text style={styles.helpText}>
-            É necessário permitir o acesso à câmera para escanear QR Codes
+            É necessário permitir o acesso à câmera para escanear QR Codes e
+            compartilhar documentos
           </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.buttonText}>Voltar</Text>
-          </TouchableOpacity>
+
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={requestCameraPermission}
+            >
+              <Text style={styles.buttonText}>Solicitar permissão novamente</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.buttonOutline}
+              onPress={openAppSettings}
+            >
+              <Text style={styles.buttonOutlineText}>Abrir Configurações</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.buttonOutline, { marginTop: 24 }]}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.buttonOutlineText}>Voltar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );

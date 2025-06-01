@@ -162,23 +162,32 @@ const DocumentEditor = ({
     
     // Listener para mudanças no documento de outros usuários
     const unsubscribeChange = SocketService.onDocumentChange(data => {
-      if (data.userId !== auth.user?.id) {
-        // Atualizar título ou conteúdo recebido de outros usuários
-        if (data.changes.title !== undefined) {
-          setTitle(data.changes.title);
-          lastSyncedTitle.current = data.changes.title;
-        }
+      // Safety check for missing userId in socket data
+      const currentUserId = auth.user?.id || auth.user?.data?._id;
+      if (!data || !data.userId || data.userId !== currentUserId) {
+        console.log("Received document change from another user:", data?.userId || "unknown");
         
-        if (data.changes.content !== undefined) {
-          setContent(data.changes.content);
-          lastSyncedContent.current = data.changes.content;
+        // Only proceed if we have valid changes
+        if (data && data.changes) {
+          // Atualizar título ou conteúdo recebido de outros usuários
+          if (data.changes.title !== undefined) {
+            setTitle(data.changes.title);
+            lastSyncedTitle.current = data.changes.title;
+          }
+          
+          if (data.changes.content !== undefined) {
+            setContent(data.changes.content);
+            lastSyncedContent.current = data.changes.content;
+          }
         }
       }
     });
     
     // Listener para eventos de digitação de outros usuários
     const unsubscribeTyping = SocketService.onUserTyping(data => {
-      if (data.userId !== auth.user?.id) {
+      // Safety check for missing userId in socket data
+      const currentUserId = auth.user?.id || auth.user?.data?._id;
+      if (data && data.userId && data.userId !== currentUserId) {
         setIsTyping(prev => ({
           ...prev,
           [data.userId]: {
@@ -202,29 +211,35 @@ const DocumentEditor = ({
     
     // Listener para usuários entrando na colaboração
     const unsubscribeJoin = SocketService.onCollaboratorJoined(data => {
-      setCollaborators(prev => {
-        // Verificar se já existe
-        const exists = prev.some(c => c.id === data.user.id);
-        if (!exists) {
-          return [...prev, { ...data.user, status: 'online' }];
-        }
-        return prev.map(c => 
-          c.id === data.user.id 
-            ? { ...c, status: 'online' } 
-            : c
-        );
-      });
+      // Only process if we have valid user data
+      if (data && data.user && data.user.id) {
+        setCollaborators(prev => {
+          // Verificar se já existe
+          const exists = prev.some(c => c.id === data.user.id);
+          if (!exists) {
+            return [...prev, { ...data.user, status: 'online' }];
+          }
+          return prev.map(c => 
+            c.id === data.user.id 
+              ? { ...c, status: 'online' } 
+              : c
+          );
+        });
+      }
     });
     
     // Listener para usuários saindo da colaboração
     const unsubscribeLeave = SocketService.onCollaboratorLeft(data => {
-      setCollaborators(prev => 
-        prev.map(c => 
-          c.id === data.userId 
-            ? { ...c, status: 'offline' } 
-            : c
-        )
-      );
+      // Only process if we have a valid user ID
+      if (data && data.userId) {
+        setCollaborators(prev => 
+          prev.map(c => 
+            c.id === data.userId 
+              ? { ...c, status: 'offline' } 
+              : c
+          )
+        );
+      }
     });
     
     // Limpar listeners ao desmontar
@@ -378,11 +393,47 @@ const DocumentEditor = ({
   const emitChange = (changes) => {
     if (!collaborationMode || !collaborationActive || !document) return;
     
-    // Enviar alterações para outros usuários via socket
-    SocketService.emitDocumentChange(document.id, changes);
-    
-    // Notificar que está digitando para mostrar indicador aos outros usuários
-    SocketService.emitUserTyping(document.id);
+    try {
+      console.log("Emitindo alterações via socket:", changes);
+      
+      // Adicionar informações completas ao objeto de alterações
+      const currentUserId = auth.user?.id || auth.user?.data?._id;
+      const userName = auth.user?.name || auth.user?.username || "Usuário";
+      
+      // Verificar se o socket está conectado
+      if (!SocketService.isSocketConnected()) {
+        console.warn("Socket não está conectado. Tentando reconectar antes de enviar alterações...");
+        
+        // Tentar reconectar - nota: isso é assíncrono mas continuamos o fluxo
+        try {
+          SocketService.reconnect()
+            .then(connected => {
+              console.log("Tentativa de reconexão do socket resultou em:", connected ? "conectado" : "falha");
+              if (connected) {
+                // Se reconectou com sucesso, tentar enviar novamente
+                setTimeout(() => {
+                  console.log("Tentando enviar alterações novamente após reconexão");
+                  SocketService.emitDocumentChange(document.id, changes);
+                }, 500);
+              }
+            })
+            .catch(err => console.error("Erro na reconexão:", err));
+        } catch (reconnectError) {
+          console.error("Erro ao tentar reconectar socket:", reconnectError);
+        }
+      }
+      
+      // Enviar alterações para outros usuários via socket
+      console.log(`Emitindo alterações para documento ${document.id}:`, changes);
+      SocketService.emitDocumentChange(document.id, changes);
+      
+      // Notificar que está digitando para mostrar indicador aos outros usuários
+      SocketService.emitUserTyping(document.id);
+      
+      console.log("Alterações emitidas com sucesso");
+    } catch (error) {
+      console.error("Erro ao emitir alterações via socket:", error);
+    }
   };
   
   // Handler de mudança de título (totalmente não bloqueante)
