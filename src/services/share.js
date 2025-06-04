@@ -165,7 +165,8 @@ class ShareService {
       const response = await this.api.get(
         `/api/share/${documentId}/collaborators`
       );
-      return response;
+      console.log("Colaboradores obtidos:", response.data);
+      return response.data; // Retornando response.data em vez de response
     } catch (error) {
       console.error("Erro ao obter colaboradores:", error);
       throw error;
@@ -187,7 +188,8 @@ class ShareService {
           permission,
         }
       );
-      return response;
+      console.log("Permissão atualizada:", response.data);
+      return response.data; // Retornando response.data em vez de response
     } catch (error) {
       console.error("Erro ao atualizar permissão do colaborador:", error);
       throw error;
@@ -205,7 +207,8 @@ class ShareService {
       const response = await this.api.delete(
         `/api/share/${documentId}/collaborators/${userId}`
       );
-      return response;
+      console.log("Colaborador removido:", userId);
+      return response.data; // Retornando response.data em vez de response
     } catch (error) {
       console.error("Erro ao remover colaborador:", error);
       throw error;

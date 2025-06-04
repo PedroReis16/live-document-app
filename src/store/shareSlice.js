@@ -107,9 +107,13 @@ export const fetchCollaborators = createAsyncThunk(
   "share/fetchCollaborators",
   async (documentId, { rejectWithValue }) => {
     try {
+      console.log("Buscando colaboradores para o documento:", documentId);
       const response = await ShareService.getCollaborators(documentId);
+      console.log("Colaboradores recebidos:", response);
+      // response já é o array de colaboradores diretamente, pois corrigimos o serviço
       return response;
     } catch (error) {
+      console.error("Erro ao carregar colaboradores:", error);
       return rejectWithValue(error.message || "Erro ao carregar colaboradores");
     }
   }

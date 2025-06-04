@@ -42,7 +42,9 @@ const CollaboratorsList = ({ documentId, isOwner = false }) => {
     try {
       setLoading(true);
       setError(null);
+      console.log("Carregando colaboradores para documentId:", documentId);
       await dispatch(fetchCollaborators(documentId)).unwrap();
+      console.log("Colaboradores carregados com sucesso:", collaborators);
     } catch (error) {
       console.error("Erro ao carregar colaboradores:", error);
       setError("Não foi possível carregar a lista de colaboradores");
