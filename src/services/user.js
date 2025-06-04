@@ -30,13 +30,10 @@ class UserService {
     try {
       // Criar objeto com os dados atualizados (sem a imagem)
       const updatedData = {
-        name: profileData.name || "",
-        bio: profileData.bio || "",
-        preferences: {
-          notifications: profileData.notifications !== undefined ? profileData.notifications : true,
-          darkMode: profileData.darkMode !== undefined ? profileData.darkMode : false,
-        }
+        username: profileData.username || "",
       };
+
+      console.log("Dados do perfil a serem atualizados:", profileData.username, profileData.email);
 
       // Se houver uma imagem de perfil para fazer upload, incluir como base64
       if (profileData.profileImage && typeof profileData.profileImage !== 'string' && profileData.profileImage.uri) {
@@ -53,7 +50,8 @@ class UserService {
       
       // Enviar todos os dados em uma única requisição
       const response = await this.api.put("/api/users/me", updatedData);
-      return response;
+      
+      return response.data;
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       throw error;

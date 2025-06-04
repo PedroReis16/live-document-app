@@ -114,7 +114,6 @@ const DocumentEditScreen = ({ route, navigation }) => {
       );
 
       console.log("Dados de permissão do usuário:", user);
-      console.log("ID do usuário:", user.id || user.data._id);
       console.log("Documento atual:", currentDocument);
       // Primeiro verifica se o usuário atual tem permissão para este documento
       const userPermissionData = await ShareService.getUserDocumentPermission(

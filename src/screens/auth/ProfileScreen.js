@@ -33,9 +33,6 @@ const ProfileScreen = ({ navigation }) => {
   const [profileData, setProfileData] = useState({
     username: "",
     email: "",
-    bio: "",
-    notifications: true,
-    darkMode: false,
     profileImage: null,
   });
   const [imageLoading, setImageLoading] = useState(false);
@@ -60,17 +57,12 @@ const ProfileScreen = ({ navigation }) => {
       setIsRefreshing(true);
       const response = await UserService.getUserProfile();
 
-      if (response && response.data) {
-        const userData = response.data;
-
+      if (response) {
         // Atualizar o estado com dados da API
         setProfileData({
           username: user.username || "",
-          email: userData.email || "",
-          bio: userData.bio || "",
-          notifications: userData.preferences?.notifications ?? true,
-          darkMode: userData.preferences?.darkMode ?? false,
-          profileImage: userData.profileImage || null,
+          email: response.email || "",
+          profileImage: response.profileImage || null,
         });
       }
     } catch (error) {
@@ -88,9 +80,6 @@ const ProfileScreen = ({ navigation }) => {
       setProfileData({
         username: user.username || "",
         email: user.email || "",
-        bio: user.bio || "",
-        notifications: user.preferences?.notifications ?? true,
-        darkMode: user.preferences?.darkMode ?? false,
         profileImage: user.profileImage || null,
       });
     } else {
@@ -98,9 +87,6 @@ const ProfileScreen = ({ navigation }) => {
       setProfileData({
         username: "",
         email: "",
-        bio: "",
-        notifications: true,
-        darkMode: false,
         profileImage: null,
       });
     }
@@ -126,13 +112,8 @@ const ProfileScreen = ({ navigation }) => {
         });
       }, 300);
 
-      // Enviar todos os dados de uma vez, incluindo a imagem como base64 se existir
-      const response = await UserService.updateProfile(profileData);
-
-      // Verificar se temos uma resposta válida e atualizar o Redux store
-      if (response && response.data && response.data.data) {
-        dispatch(updateUserProfile(response.data.data));
-      }
+      console.log("Var iniciar a atualização");
+      dispatch(updateUserProfile(profileData));
 
       clearInterval(intervalId);
       setUploadProgress(100);

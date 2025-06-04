@@ -172,11 +172,23 @@ export const updateUserProfile = createAsyncThunk(
   "auth/updateProfile",
   async (profileData, { rejectWithValue, getState }) => {
     try {
+      console.log(
+        "Atualizando perfil do usuário:",
+        profileData.username,
+        profileData.email
+      );
       const { auth } = getState();
-      const userId = auth.user.id;
+      // const userId = auth.user.id || auth.user.data._id;
 
-      // Atualizar perfil na API
-      const updatedUser = await ApiService.updateProfile(userId, profileData);
+      console.log(auth);
+      console.log(
+        "Atualizando perfil do usuário:",
+        profileData.username,
+        profileData.email
+      );
+
+      // Atualizar perfil na API - removendo o userId do primeiro parâmetro
+      const updatedUser = await ApiService.updateProfile(profileData);
 
       // Atualizar no armazenamento local
       await StorageService.setUserData(updatedUser);
