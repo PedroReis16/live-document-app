@@ -22,7 +22,6 @@ const ApiService = {
   getUserProfile: userService.getUserProfile.bind(userService),
   updateProfile: userService.updateProfile.bind(userService),
   updatePassword: userService.updatePassword.bind(userService),
-  uploadAvatar: userService.uploadAvatar.bind(userService),
   removeAvatar: userService.removeAvatar.bind(userService),
   updatePreferences: userService.updatePreferences.bind(userService),
   

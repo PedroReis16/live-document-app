@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
@@ -14,7 +13,6 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
-import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { styles } from "./styles/ProfileScreen.style";
@@ -25,6 +23,7 @@ import Input from "../../components/common/Input";
 
 // Redux actions
 import { logout, updateUserProfile } from "../../store/authSlice";
+import UserService from "../../services/user";
 
 const ProfileScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -32,7 +31,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
-    name: "",
+    username: "",
     email: "",
     bio: "",
     notifications: true,
@@ -40,12 +39,54 @@ const ProfileScreen = ({ navigation }) => {
     profileImage: null,
   });
   const [imageLoading, setImageLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Carregar dados do usuário
   useEffect(() => {
+    fetchUserDataFromAPI();
+  }, []);
+
+  // Também atualizar quando o estado do usuário mudar
+  useEffect(() => {
+    if (user) {
+      updateLocalProfileData();
+    }
+  }, [user]);
+
+  // Função para buscar dados diretamente da API
+  const fetchUserDataFromAPI = async () => {
+    try {
+      setIsRefreshing(true);
+      const response = await UserService.getUserProfile();
+
+      if (response && response.data) {
+        const userData = response.data;
+
+        // Atualizar o estado com dados da API
+        setProfileData({
+          username: user.username || "",
+          email: userData.email || "",
+          bio: userData.bio || "",
+          notifications: userData.preferences?.notifications ?? true,
+          darkMode: userData.preferences?.darkMode ?? false,
+          profileImage: userData.profileImage || null,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao buscar dados do usuário:", error);
+      // Se houver erro, usar dados do Redux como fallback
+      updateLocalProfileData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Função para atualizar dados locais do Redux
+  const updateLocalProfileData = () => {
     if (user) {
       setProfileData({
-        name: user.username || "",
+        username: user.username || "",
         email: user.email || "",
         bio: user.bio || "",
         notifications: user.preferences?.notifications ?? true,
@@ -55,7 +96,7 @@ const ProfileScreen = ({ navigation }) => {
     } else {
       // Definir valores padrão caso o usuário não esteja disponível
       setProfileData({
-        name: "",
+        username: "",
         email: "",
         bio: "",
         notifications: true,
@@ -63,20 +104,153 @@ const ProfileScreen = ({ navigation }) => {
         profileImage: null,
       });
     }
-  }, [user]);
+  };
 
   // Função para atualizar dados do perfil
   const handleUpdateProfile = async () => {
+    // Validação básica
+    if (!profileData.username.trim()) {
+      Alert.alert("Erro", "O nome é obrigatório");
+      return;
+    }
+
     try {
-      await dispatch(updateUserProfile(profileData)).unwrap();
-      Alert.alert("Sucesso", "Perfil atualizado com sucesso");
-      setIsEditing(false);
+      setUploadProgress(0);
+      const intervalId = setInterval(() => {
+        setUploadProgress((prev) => {
+          // Simular progresso até 90%
+          if (prev < 90) {
+            return prev + 10;
+          }
+          return prev;
+        });
+      }, 300);
+
+      // Enviar todos os dados de uma vez, incluindo a imagem como base64 se existir
+      const response = await UserService.updateProfile(profileData);
+
+      // Verificar se temos uma resposta válida e atualizar o Redux store
+      if (response && response.data && response.data.data) {
+        dispatch(updateUserProfile(response.data.data));
+      }
+
+      clearInterval(intervalId);
+      setUploadProgress(100);
+
+      // Buscar dados atualizados da API após a atualização
+      await fetchUserDataFromAPI();
+
+      setTimeout(() => {
+        Alert.alert("Sucesso", "Perfil atualizado com sucesso");
+        setIsEditing(false);
+        setUploadProgress(0);
+      }, 500);
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
+      clearInterval(intervalId);
+      setUploadProgress(0);
+
       Alert.alert(
         "Erro",
         "Não foi possível atualizar o perfil. Tente novamente."
       );
+    }
+  };
+
+  // Função para remover a imagem de perfil
+  const handleRemoveImage = () => {
+    Alert.alert(
+      "Remover imagem",
+      "Tem certeza que deseja remover sua foto de perfil?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setImageLoading(true);
+              const response = await UserService.removeAvatar();
+
+              // Atualizar o estado local
+              setProfileData({
+                ...profileData,
+                profileImage: null,
+              });
+
+              // Atualizar o Redux store se necessário
+              if (response && response.data) {
+                dispatch(updateUserProfile(response.data));
+              }
+
+              // Buscar dados atualizados da API
+              await fetchUserDataFromAPI();
+
+              // Mostrar mensagem de sucesso
+              Alert.alert("Sucesso", "Foto de perfil removida com sucesso");
+            } catch (error) {
+              console.error("Erro ao remover imagem:", error);
+              Alert.alert(
+                "Erro",
+                "Não foi possível remover a imagem. Tente novamente."
+              );
+            } finally {
+              setImageLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Função para tirar foto
+  const handleTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permissão negada",
+          "É necessário permitir o acesso à câmera."
+        );
+        return;
+      }
+
+      setImageLoading(true);
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const photo = result.assets[0];
+
+        // Verificar tamanho
+        const fileInfo = await FileSystem.getInfoAsync(photo.uri);
+        if (fileInfo.size > 2 * 1024 * 1024) {
+          Alert.alert(
+            "Imagem muito grande",
+            "A foto é muito grande. O tamanho máximo é 2MB."
+          );
+          return;
+        }
+
+        setProfileData({
+          ...profileData,
+          profileImage: {
+            uri: photo.uri,
+            type: "image/jpeg",
+            name: "profile-photo.jpg",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao tirar foto:", error);
+      Alert.alert("Erro", "Não foi possível tirar a foto. Tente novamente.");
+    } finally {
+      setImageLoading(false);
     }
   };
 
@@ -96,10 +270,10 @@ const ProfileScreen = ({ navigation }) => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: "Images",
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.7,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
@@ -135,6 +309,15 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
+  // Função para mostrar opções de imagem
+  const handleImageOptions = () => {
+    Alert.alert("Foto de perfil", "Como deseja adicionar sua foto?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Tirar foto", onPress: handleTakePhoto },
+      { text: "Escolher da galeria", onPress: handleSelectImage },
+    ]);
+  };
+
   // Função para fazer logout
   const handleLogout = async () => {
     Alert.alert("Sair da conta", "Tem certeza que deseja sair da sua conta?", [
@@ -158,28 +341,63 @@ const ProfileScreen = ({ navigation }) => {
       {imageLoading ? (
         <ActivityIndicator size="large" color="#2196f3" />
       ) : profileData.profileImage ? (
-        <Image
-          source={{
-            uri:
-              typeof profileData.profileImage === "string"
-                ? profileData.profileImage
-                : profileData.profileImage.uri,
-          }}
-          style={styles.profileImage}
-        />
+        <TouchableOpacity
+          activeOpacity={isEditing ? 0.7 : 1}
+          onPress={isEditing ? handleImageOptions : undefined}
+        >
+          <Image
+            source={{
+              uri:
+                typeof profileData.profileImage === "string"
+                  ? profileData.profileImage
+                  : profileData.profileImage.uri,
+            }}
+            style={styles.profileImage}
+          />
+
+          {isEditing && (
+            <View style={styles.imageEditOverlay}>
+              <Feather name="camera" size={24} color="#fff" />
+              <Text style={styles.imageEditText}>Alterar foto</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       ) : (
-        <View style={styles.placeholderImage}>
+        <TouchableOpacity
+          style={styles.placeholderImage}
+          activeOpacity={isEditing ? 0.7 : 1}
+          onPress={isEditing ? handleImageOptions : undefined}
+        >
           <Feather name="user" size={50} color="#999" />
-        </View>
+          {isEditing && (
+            <View style={styles.imageEditOverlayPlaceholder}>
+              <Feather name="plus" size={24} color="#777" />
+              <Text style={styles.imageEditTextPlaceholder}>
+                Adicionar foto
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       )}
 
-      {isEditing && (
+      {isEditing && profileData.profileImage && (
         <TouchableOpacity
-          style={styles.changeImageButton}
-          onPress={handleSelectImage}
+          style={styles.removeImageButton}
+          onPress={handleRemoveImage}
         >
-          <Feather name="camera" size={16} color="#fff" />
+          <Feather name="trash-2" size={16} color="#fff" />
         </TouchableOpacity>
+      )}
+
+      {uploadProgress > 0 && (
+        <View
+          style={[
+            styles.progressBarContainer,
+            { opacity: uploadProgress === 100 ? 0 : 1 },
+          ]}
+        >
+          <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
+        </View>
       )}
     </View>
   );
@@ -205,16 +423,16 @@ const ProfileScreen = ({ navigation }) => {
         <ProfileImage />
 
         {/* Nome de usuário */}
-        <Text style={styles.nameText}>{user?.name || "Usuário"}</Text>
+        <Text style={styles.nameText}>{profileData.username || "Usuário"}</Text>
 
         {/* Formulário de perfil */}
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nome</Text>
             <Input
-              value={profileData.name}
+              value={profileData.username}
               onChangeText={(text) =>
-                setProfileData({ ...profileData, name: text })
+                setProfileData({ ...profileData, username: text })
               }
               placeholder="Seu nome completo"
               editable={isEditing}
@@ -234,54 +452,7 @@ const ProfileScreen = ({ navigation }) => {
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Bio</Text>
-            <Input
-              value={profileData.bio}
-              onChangeText={(text) =>
-                setProfileData({ ...profileData, bio: text })
-              }
-              placeholder="Conte um pouco sobre você..."
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              editable={isEditing}
-              style={styles.bioInput}
-            />
-          </View>
-
           {/* Preferências */}
-          <View style={styles.preferencesContainer}>
-            <Text style={styles.sectionTitle}>Preferências</Text>
-
-            <View style={styles.preferenceItem}>
-              <Text style={styles.preferenceLabel}>Notificações</Text>
-              <Switch
-                value={profileData.notifications}
-                onValueChange={(value) =>
-                  isEditing &&
-                  setProfileData({ ...profileData, notifications: value })
-                }
-                disabled={!isEditing}
-                trackColor={{ false: "#e0e0e0", true: "#bbdefb" }}
-                thumbColor={profileData.notifications ? "#2196f3" : "#f5f5f5"}
-              />
-            </View>
-
-            <View style={styles.preferenceItem}>
-              <Text style={styles.preferenceLabel}>Modo escuro</Text>
-              <Switch
-                value={profileData.darkMode}
-                onValueChange={(value) =>
-                  isEditing &&
-                  setProfileData({ ...profileData, darkMode: value })
-                }
-                disabled={!isEditing}
-                trackColor={{ false: "#e0e0e0", true: "#bbdefb" }}
-                thumbColor={profileData.darkMode ? "#2196f3" : "#f5f5f5"}
-              />
-            </View>
-          </View>
         </View>
 
         {/* Botões de ação */}
@@ -298,16 +469,7 @@ const ProfileScreen = ({ navigation }) => {
                 title="Cancelar"
                 onPress={() => {
                   // Restaurar dados originais
-                  if (user) {
-                    setProfileData({
-                      name: user.name || "",
-                      email: user.email || "",
-                      bio: user.bio || "",
-                      notifications: user.preferences?.notifications ?? true,
-                      darkMode: user.preferences?.darkMode ?? false,
-                      profileImage: user.profileImage || null,
-                    });
-                  }
+                  loadUserData();
                   setIsEditing(false);
                 }}
                 style={styles.cancelButton}
@@ -326,15 +488,9 @@ const ProfileScreen = ({ navigation }) => {
             />
           )}
         </View>
-
-        {/* Versão do app */}
-        <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Document App v1.0.0</Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
-
 
 export default ProfileScreen;

@@ -1,4 +1,6 @@
 import { baseApiService } from "./BaseApiService";
+import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from 'expo-image-manipulator';
 
 class UserService {
   constructor() {
@@ -12,7 +14,7 @@ class UserService {
   async getUserProfile() {
     try {
       const response = await this.api.get("/api/users/me");
-      return response;
+      return response.data;
     } catch (error) {
       console.error("Erro ao buscar perfil do usuário:", error);
       throw error;
@@ -26,14 +28,38 @@ class UserService {
    */
   async updateProfile(profileData) {
     try {
-      const response = await this.api.put("/api/users/me", profileData);
+      // Criar objeto com os dados atualizados (sem a imagem)
+      const updatedData = {
+        name: profileData.name || "",
+        bio: profileData.bio || "",
+        preferences: {
+          notifications: profileData.notifications !== undefined ? profileData.notifications : true,
+          darkMode: profileData.darkMode !== undefined ? profileData.darkMode : false,
+        }
+      };
+
+      // Se houver uma imagem de perfil para fazer upload, incluir como base64
+      if (profileData.profileImage && typeof profileData.profileImage !== 'string' && profileData.profileImage.uri) {
+        try {
+          // Converter imagem para base64
+          const base64Image = await this.simpleImageToBase64(profileData.profileImage.uri);
+          
+          // Adicionar a imagem base64 ao objeto de dados
+          updatedData.profileImage = base64Image;
+        } catch (imageError) {
+          console.warn("Erro ao processar imagem:", imageError);
+        }
+      }
+      
+      // Enviar todos os dados em uma única requisição
+      const response = await this.api.put("/api/users/me", updatedData);
       return response;
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       throw error;
     }
   }
-
+  
   /**
    * Atualiza a senha do usuário
    * @param {Object} passwordData - Objeto com senha antiga e nova
@@ -47,36 +73,24 @@ class UserService {
       );
       return response;
     } catch (error) {
-      console.error("Erro ao atualizar senha:", error);
+      console.error("Erro ao alterar senha:", error);
       throw error;
     }
   }
 
   /**
-   * Faz upload de avatar do usuário
-   * @param {FormData} formData - FormData com a imagem
-   * @returns {Promise} Promessa com URL do avatar
+   * Converter imagem para base64
+   * @param {String} uri - URI da imagem para converter
+   * @returns {Promise<String>} String base64 da imagem
    */
-  async uploadAvatar(avatar) {
+  async simpleImageToBase64(uri) {
     try {
-      if (!avatar) return;
-
-      const formAvatar = new FormData();
-
-      formAvatar.append("avatar", {
-        uri: avatar.uri,
-        type: avatar.type || "image/jpeg",
-        name: avatar.fileName || "avatar.jpg",
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
       });
-
-      const response = await this.api.post("/api/users/me/avatar", formAvatar, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      return response;
+      return `data:image/jpeg;base64,${base64}`;
     } catch (error) {
-      console.error("Erro ao fazer upload de avatar:", error);
+      console.error("Erro ao converter imagem para base64:", error);
       throw error;
     }
   }
