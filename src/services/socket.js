@@ -244,8 +244,25 @@ class SocketService {
    */
   leaveDocument(documentId) {
     if (this.socket && this.socket.connected) {
+      console.log(`Saindo do documento ${documentId}`);
       this.socket.emit("leave-document", documentId);
-      this.currentDocument = null;
+      
+      // Limpar referência ao documento atual
+      if (this.currentDocument === documentId) {
+        console.log(`Limpando referência ao documento atual: ${documentId}`);
+        this.currentDocument = null;
+      }
+      
+      // Remover ouvintes específicos deste documento
+      try {
+        this.socket.off(`document-content-${documentId}`);
+        this.socket.off(`document-change-${documentId}`);
+        console.log(`Listeners específicos do documento ${documentId} removidos`);
+      } catch (error) {
+        console.error(`Erro ao remover listeners do documento ${documentId}:`, error);
+      }
+    } else {
+      console.warn("Tentativa de sair de documento com socket desconectado");
     }
   }
 

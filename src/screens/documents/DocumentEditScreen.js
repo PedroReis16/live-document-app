@@ -11,6 +11,7 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import { Feather } from "@expo/vector-icons";
 import { styles } from "./styles/DocumeEditScreen.style";
+import { useFocusEffect } from "@react-navigation/native";
 
 import {
   fetchDocumentById,
@@ -419,6 +420,25 @@ const DocumentEditScreen = ({ route, navigation }) => {
       return () => clearInterval(checkSocketStatus);
     }
   }, [collaborationMode, currentDocument, collaborationActive, dispatch]);
+
+  // Detectar quando o usuário sai da tela para garantir desconexão do socket
+  useFocusEffect(
+    React.useCallback(() => {
+      // Quando a tela recebe foco, não precisamos fazer nada aqui
+      // O useEffect já cuida da conexão inicial
+
+      // Esta função é executada quando a tela perde o foco
+      return () => {
+        console.log("Tela de edição perdeu o foco, desconectando socket...");
+        if (collaborationActive && currentDocument?.id) {
+          console.log(`Desconectando do documento: ${currentDocument.id}`);
+          dispatch(leaveCollaboration(currentDocument.id));
+          ShareService.removeCollaborationListeners();
+          dispatch(clearCollaborationState());
+        }
+      };
+    }, [collaborationActive, currentDocument, dispatch])
+  );
 
   const handleShare = () => {
     if (!currentDocument || !currentDocument.id) {
