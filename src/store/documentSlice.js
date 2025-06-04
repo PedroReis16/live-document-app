@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, createAction } from "@reduxjs/toolkit";
 import DocumentService from "../services/documents";
 import SocketService from "../services/socket";
+import StorageService from "../services/storage";
+import ApiService from "../services/api";
 
 // Nova ação para atualizações via socket sem triggering loading
 export const receiveSocketUpdate = createAction(
@@ -83,19 +85,37 @@ export const joinCollaboration = createAsyncThunk(
       // Guardar o ID do documento solicitado para verificação posterior
       const requestedDocId = documentId;
       
-      // Obter token do estado de autenticação
-      const { auth } = getState();
-      if (!auth.token) {
+      // Obter tokens do Storage em vez de confiar apenas no estado do Redux
+      let token = null;
+      
+      try {
+        const tokens = await StorageService.getTokens();
+        if (tokens && tokens.accessToken) {
+          token = tokens.accessToken;
+          // Atualizar o token no serviço de API para garantir consistência
+          ApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
+        }
+      } catch (storageError) {
+        console.log("Erro ao buscar tokens do storage:", storageError);
+      }
+      
+      // Se não conseguiu do storage, tentar do estado do Redux como fallback
+      if (!token) {
+        const { auth } = getState();
+        token = auth.token;
+      }
+      
+      if (!token) {
         return rejectWithValue("Usuário não autenticado");
       }
 
       // Conectar socket se não estiver conectado
       if (!SocketService.isSocketConnected()) {
-        SocketService.connect(auth.token);
+        SocketService.connect(token);
       }
 
       // Entrar no documento
-      const response = await SocketService.joinDocument(documentId);
+      const response = await SocketService.joinDocument(documentId, token);
       console.log("Resposta joinDocument:", response);
 
       // Verificar se o socket retornou o conteúdo do documento

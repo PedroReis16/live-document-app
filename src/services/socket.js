@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 import { API_BASE_URL } from "../utils/constants";
 import StorageService from "./storage";
+import { baseApiService } from "./BaseApiService";
 
 class SocketService {
   constructor() {
@@ -46,22 +47,38 @@ class SocketService {
    * Tenta reconectar usando o token mais recente
    */
   async reconnect() {
-    // Se temos um token na memória, usamos ele
-    let token = this.currentToken;
+    // Sempre buscar o token mais recente do storage para garantir que não estamos usando um token expirado
+    let token = null;
 
-    // Caso contrário, tentamos buscar do storage
-    if (!token) {
+    try {
       const tokens = await StorageService.getTokens();
       if (tokens && tokens.accessToken) {
         token = tokens.accessToken;
-        this.currentToken = token;
-      }
-    }
 
-    // Só tentamos conectar se tivermos um token
-    if (token) {
-      this.connect(token);
-      return true;
+        // Atualizar o token no serviço de API também para garantir consistência
+        baseApiService.setAuthToken(tokens.accessToken, tokens.refreshToken);
+
+        // Atualizar o token atual do socket
+        this.currentToken = token;
+
+        // Desconectar socket existente, se houver
+        if (this.socket) {
+          this.socket.disconnect();
+        }
+
+        // Conectar com o novo token
+        this.connect(token);
+
+        // Aguardar a conexão ser estabelecida
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(this.isSocketConnected());
+          }, 1000);
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao obter token para reconexão:", error);
+      return false;
     }
 
     return false;
@@ -156,17 +173,24 @@ class SocketService {
    * @returns {Promise} Promessa resolvida quando conectado ao documento
    */
   joinDocument(documentId, token = null) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
         return reject(new Error("Socket não está conectado"));
       }
 
+      // Usar o token fornecido ou o mais recente armazenado
+      const tokenToUse = token || this.currentToken;
+      
+      // Guardar o ID do documento atual
       this.currentDocument = documentId;
-      this.socket.emit("join-document", documentId, token);
+
+      // Enviar comando para entrar no documento
+      console.log(`Entrando no documento ${documentId} com token ${tokenToUse ? 'válido' : 'inválido'}`);
+      this.socket.emit("join-document", documentId, tokenToUse);
 
       // Aguardar evento de conexão com sucesso
       const onConnected = (users) => {
-        console.log(`Conectado ao documento ${documentId}`);
+        console.log(`Conectado ao documento ${documentId} com sucesso`);
         this.socket.off("connected-users", onConnected);
         this.socket.off("auth-error", onError);
         this.socket.off("error", onError);
@@ -179,7 +203,32 @@ class SocketService {
         this.socket.off("connected-users", onConnected);
         this.socket.off("auth-error", onError);
         this.socket.off("error", onError);
-        reject(error);
+        
+        // Se o erro for de autenticação, tentar obter token atualizado e tentar novamente
+        if (error && (error.type === 'auth-error' || error === 'Unauthorized')) {
+          console.log("Erro de autenticação, tentando obter token atualizado...");
+          
+          // Tentar reconectar com token atualizado
+          this.reconnect()
+            .then(reconnected => {
+              if (reconnected) {
+                console.log("Reconexão bem-sucedida, tentando entrar no documento novamente");
+                // Tentar entrar no documento novamente após 500ms
+                setTimeout(() => {
+                  this.joinDocument(documentId)
+                    .then(resolve)
+                    .catch(reject);
+                }, 500);
+              } else {
+                reject(new Error("Não foi possível reconectar com token atualizado"));
+              }
+            })
+            .catch(err => {
+              reject(new Error(`Falha na reconexão: ${err.message}`));
+            });
+        } else {
+          reject(error);
+        }
       };
 
       // Registrar listeners temporários

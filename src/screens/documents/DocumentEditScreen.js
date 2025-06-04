@@ -30,6 +30,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { set } from "lodash";
 import SocketService from "../../services/socket";
 import StorageService from "../../services/storage";
+import ApiService from "../../services/api";
 
 // Chave para salvar documentos no storage local
 const LOCAL_DOCUMENT_KEY_PREFIX = "local_document_";
@@ -299,15 +300,19 @@ const DocumentEditScreen = ({ route, navigation }) => {
       const connectAndJoin = async () => {
         try {
           // Obter o token atual
-          var userToken = await StorageService.getTokens();
+          const userToken = await StorageService.getTokens();
 
-          if (!userToken.accessToken) {
+          if (!userToken || !userToken.accessToken) {
             console.error("Token de acesso não encontrado para conexão socket");
             return;
           }
 
-          // Conectar o socket com o token de autenticação
-          console.log("Conectando socket com token...");
+          // Atualizar o token no serviço de API também para garantir consistência
+          ApiService.setAuthToken(userToken.accessToken, userToken.refreshToken);
+
+          // Conectar o socket com o token de autenticação atualizado
+          console.log("Conectando socket com token atualizado...");
+          SocketService.disconnect(); // Desconectar socket atual se existir
           SocketService.connect(userToken.accessToken);
 
           // Pequeno atraso para garantir que o socket esteja conectado
